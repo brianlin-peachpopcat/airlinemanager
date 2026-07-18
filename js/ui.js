@@ -297,8 +297,9 @@ document.addEventListener("pointerdown", (e) => {
 
 // ---------------- panel shell ----------------
 
-function openPanel(id) {
-  if (UI.panel === id) { closePanel(); return; }
+function openPanel(id, opts) {
+  // Sidebar clicks toggle closed; tutorial / deep-links can force stay open.
+  if (UI.panel === id && !(opts && opts.force)) { closePanel(); return; }
   UI.panel = id;
   UI.routeFormPlane = null;
   UI.cfgPlane = null;
@@ -1109,6 +1110,7 @@ function uiAssign(id) {
     UI.rfStopPicker = null;
     refreshRouteUI();
     toast(`Route set: ${from} ⇄ ${to}`);
+    tutNotify("route");
   } else {
     toast(G.err || "Route not valid for this aircraft.");
   }
@@ -3082,6 +3084,7 @@ function showPlaneCard(id) {
     standalone.innerHTML = "";
   }
   renderPlaneCard();
+  tutNotify("planeCard");
 }
 
 function closePlaneCard() {
@@ -4055,124 +4058,248 @@ function uiPlaneCardHist() {
   renderPlaneCard();
 }
 
-// ---------------- help / FAQ ----------------
+// ---------------- help / FAQ chatbot ----------------
 
 const HELP_FAQ = [
   {
     id: "airport",
     q: "Why don’t I see my favourite airport?",
+    keys: ["airport", "airports", "zoom", "globe", "map", "dots", "jfk", "lga", "ewr", "parked", "visible"],
     a: `The globe hides smaller markets when you’re zoomed out so the map stays readable. Scroll or pinch to zoom in — tiny airports only appear up close, and you can zoom quite far to separate metro clusters (e.g. JFK, LGA and EWR). Your hubs, route endpoints, and parked aircraft always stay visible no matter the zoom. Parked planes draw on top of airport dots so you can tap them after landing — switch to <b>Airports on top</b> under Company if you’d rather tap the dots instead.`,
   },
   {
     id: "lease",
     q: "How does leasing work?",
+    keys: ["lease", "leasing", "rent", "deposit", "return", "cooldown", "cool-down"],
     a: `Leasing lets you fly a jet without paying the full sticker price. You pay a small deposit up front (about 5% of list price), then a daily lease fee while you have it. Every lease lasts ${LEASE_MAX_DAYS} game days — when the clock runs out the airframe goes back to the manufacturer automatically (or you can return it early from Fleet Management).<br><br>After a lease ends (or you return it), that maker puts you on a ${LEASE_COOLDOWN_DAYS}-day cool-down and charges roughly ${Math.round((LEASE_SURCHARGE - 1) * 100)}% more if you lease from them again during that window. Leased planes can’t be sold — only returned.`,
   },
   {
     id: "depart",
     q: "Why won’t my plane depart?",
+    keys: ["depart", "departure", "ready", "dispatch", "won't", "wont", "stuck", "gate", "held"],
     a: `Check three things: <b>fuel</b> (no fuel = held at the gate), <b>maintenance</b> (worn-out airframes get safety-grounded), and <b>dispatch</b>. Without the Dispatch office (Company → Training), planes wait at “Ready” after every turnaround until you press Depart. Buy the office once and departures run themselves.`,
   },
   {
     id: "demand",
     q: "How does route demand work?",
+    keys: ["demand", "passengers", "pax", "pool", "empty", "load", "fill", "bookings"],
     a: `Each city-pair has a finite passenger (and freight) pool that refills on a schedule — every <b>24 hours</b> on Normal and Realism, every <b>12 hours</b> on Easy. Flying a route uses up what's left; once it's empty, further flights leave nearly empty until the next reset. World events, reputation, catering, and codeshares still multiply whatever remains right now.`,
   },
   {
     id: "reputation",
     q: "How does reputation work?",
+    keys: ["reputation", "rep", "morale", "brand", "overdraft"],
     a: `Reputation roughly caps how full your planes get — around 50% rep fills about half the seats (±10%). Keep airframes tidy, look after staff morale, and run marketing to climb. Flying without enough CO₂ quota costs −${CO2_OVERDRAFT_REP} reputation per overdraft departure, and neglected high-wear aircraft chip away at the brand too.`,
   },
   {
     id: "hubs",
     q: "How do hubs and routes work?",
+    keys: ["hub", "hubs", "route", "routes", "international", "domestic", "slots"],
     a: `Every route must depart from a hub you own. Click an airport on the globe to buy a hub there. You can hold up to ${HUB_MAX} hubs total; international hubs also share a tighter slot limit (${INTL_HUB_SLOTS} based aircraft each, max ${INTL_HUB_MAX} international hubs). Domestic hubs (same country as your home) don’t use those international slots.`,
   },
   {
     id: "fuelco2",
     q: "What’s the deal with fuel & CO₂?",
+    keys: ["fuel", "co2", "carbon", "quota", "tanks", "burn"],
     a: `Every departure burns fuel and CO₂ quota from your tanks. No fuel = held at the gate. CO₂ is different: you <i>can</i> depart into the negatives, but each overdraft flight costs −${CO2_OVERDRAFT_REP} reputation. Buy both when prices dip (Fuel & CO₂ panel) and expand storage with ⭐ points.`,
   },
   {
     id: "storms",
     q: "What do storms do?",
+    keys: ["storm", "storms", "weather", "typhoon", "divert", "diversion", "hold"],
     a: `Active storms show up under World Events → Weather Warnings and as icons on the globe. Departures from airports inside a storm can face random gate holds. If a flight path goes through or near a storm, the plane must divert — about ${WX_DIVERT_MIN} minutes longer and a bit more fuel.`,
   },
   {
     id: "gazette",
     q: "What’s the Weekly Gazette?",
+    keys: ["gazette", "newspaper", "paper", "weekly", "news"],
     a: `Every Sunday the game prints a newspaper under World Events summarizing the week — typhoons and other storms, rival bankruptcies and mergers, your acquisitions, and significant world headlines. Flip Week chips to re-read past issues (last ${PAPER_ARCHIVE} kept).`,
   },
   {
     id: "difficulty",
     q: "What’s the difference between Easy, Normal and Realism?",
+    keys: ["easy", "normal", "realism", "difficulty", "hard", "mode"],
     a: `<b>Easy</b> discounts aircraft by class, boosts ticket & cargo revenue, cheapens marketing, seeds fewer rivals, and unlocks the Eco Friendly campaign.<br><br><b>Normal</b> is the standard balance with a free choice of game speed.<br><br><b>Realism</b> is otherwise like Normal, but airframes wear twice as fast and you’re locked to 4× speed. Difficulty is chosen when you found the airline and can’t be changed later.`,
   },
   {
     id: "charter",
     q: "How do charters and VIP jets work?",
+    keys: ["charter", "charters", "vip", "bizjet", "desk", "ferry"],
     a: `Unlock the charter desk in Fleet Management (${CHARTER_UNLOCK_PTS} ⭐). Customers call with one-off routes and a fixed payout — any passenger aircraft with the range can accept.<br><br>VIP bizjets live in their own <b>Charter</b> shop section and stay locked until the desk is open. Flying a job with one earns +${Math.round((CHARTER_SPEC_PAY - 1) * 100)}% pay and can create repeat clients.<br><br>When ordering or configuring a VIP jet you arrange the cabin with club seats, tables, couches, and beds. That’s cosmetic only — it doesn’t change charter pay. Smaller airframes (Citation, Phenom) can’t fit beds; larger VIP frames unlock more furniture.`,
   },
   {
     id: "amenities",
     q: "What do Wi-Fi, entertainment and cabin upgrades do?",
+    keys: ["wifi", "wi-fi", "entertainment", "cabin", "seats", "amenity", "amenities", "freighter", "convert"],
     a: `Every passenger aircraft carries three cabin systems, managed from Fleet Management → Configure: <b>Wi-Fi</b>, <b>entertainment</b> and <b>cabin & seats</b>. Better kit lifts passenger demand a little (high-speed Wi-Fi and premium interiors also earn onboard income per passenger); flying with no entertainment or a worn, dated cabin costs you bookings. New deliveries arrive with a modern loadout, but used airframes come with whatever the last owner fitted — often outdated systems or none at all. Upgrades cost money plus ${fmtDur(AMEN_DOWNTIME_MIN)} in the cabin shop, and refurbishing a used purchase includes a full modern cabin.<br><br>Airline cabins use First / Business / Economy space (F×3 · J×2 · Y×1). You can also convert many passenger jets to freighters from Configure — irreversible, with a cargo payload and a one-time cost.`,
   },
   {
     id: "school",
     q: "How does the Flight School work?",
+    keys: ["school", "cadet", "cadets", "simulator", "simulators", "pilot", "pilots", "training", "class"],
     a: `Under Company → Flight school you can build a campus at any hub and furnish it like a lounge. Desks, libraries and briefing rooms grow class sizes, instructor offices shorten courses, and <b>simulators</b> do the real work: each one runs continuous cadet classes (narrowbody ${CLASS_DAYS.narrow} days, widebody ${CLASS_DAYS.wide} days — young pilots enrol on their own). Graduates join your pilot pool and crew new deliveries at ${Math.round(CADET_PAY_MULT * 100)}% of market pay, every class banks training points, and your first widebody class certifies the whole airline for heavy aircraft without needing Pilot training Lv ${WIDE_PILOT_LVL}.`,
   },
   {
     id: "used",
     q: "What’s the used market?",
+    keys: ["used", "secondhand", "second-hand", "market", "wear", "classic", "concorde"],
     a: `Under Purchase Aircraft → Used market you’ll find second-hand airframes with real hours and wear. Stock size varies (roughly a dozen to two dozen), and listings reshuffle every couple of days. Freighters show up sometimes — and retirement headlines (e.g. SpedEx parking MD-11Fs) can dump a wave onto the ramp — but buying cargo jets still needs the cargo division unlocked. Some classics (Concorde, early 747s, etc.) only appear there. Limited-production types can sell out of the new shop forever and then only show up used.`,
   },
   {
     id: "paint",
     q: "How do paint jobs work?",
+    keys: ["paint", "livery", "liveries", "colour", "color", "colours", "colors"],
     a: `Open Configure on a plane and pick body, belly, tail, and engine colours. Saving a new livery costs $5k–$40k depending on the aircraft and puts it in the paint shop for ${fmtDur(PAINT_DOWNTIME_MIN)}. Freighters lose their cabin windows (cockpit stays). The Aerobus Orca arrives in house colours (white body, black tail); the An-225 keeps its factory paint.`,
+  },
+  {
+    id: "controls",
+    q: "How do I move the globe?",
+    keys: ["wasd", "arrows", "keyboard", "mouse", "drag", "pan", "move", "controls", "zoom", "scroll", "pinch"],
+    a: `Drag with the mouse (or one finger) to spin the globe. <b>WASD</b> and the <b>arrow keys</b> do the same — W / ↑ pans up, S / ↓ down, A / ← left, D / → right. Scroll or pinch to zoom; zoom in close to reveal smaller airports.`,
   },
 ];
 
-function renderHelp() {
-  const open = UI.helpQ || null;
-  const q = (UI.helpSearch || "").trim().toLowerCase();
-  const items = q
-    ? HELP_FAQ.filter(item => {
-      const hay = `${item.q} ${item.a.replace(/<[^>]+>/g, " ")}`.toLowerCase();
-      return hay.includes(q);
-    })
-    : HELP_FAQ;
-  const intro = `<div class="muted mini panel-note">Quick answers for common “wait, why…?” moments. Tap a question to expand it — more tips will land here over time.</div>
-    <div class="help-search">
-      <input type="search" placeholder="🔍 Search help…" value="${esc(UI.helpSearch || "")}"
-        oninput="uiHelpSearch(this.value)" autocomplete="off">
-    </div>`;
-  if (!items.length) {
-    return intro + `<div class="empty">No help topics match “${esc(UI.helpSearch)}”.</div>`;
+const HELP_STOP = new Set([
+  "a", "an", "the", "how", "what", "why", "do", "does", "did", "is", "are", "was", "were",
+  "my", "me", "i", "we", "you", "your", "to", "of", "and", "or", "in", "on", "for", "with",
+  "about", "can", "could", "would", "should", "tell", "please", "help", "explain", "work",
+  "works", "working", "thing", "things", "this", "that", "it", "its", "be", "been",
+]);
+
+const HELP_DEV_ASK = /\b(dev(eloper)?\s*(tools?)?\s*(pass(code|word)?|pin|code)|pass\s*code|password|cheat\s*code|unlock\s*code|admin\s*(pass|code|pin)|secret\s*code|main\s*hippo)\b/i;
+
+function helpWelcome() {
+  return {
+    role: "bot",
+    html: `Hi — I’m the SkyTycoon help desk. Ask me about fuel, hubs, charters, leasing, storms… or tap a topic below.<br><span class="muted mini">I only know this game’s rules — nothing outside SkyTycoon.</span>`,
+  };
+}
+
+function ensureHelpChat() {
+  if (!Array.isArray(UI.helpChat) || !UI.helpChat.length) UI.helpChat = [helpWelcome()];
+  return UI.helpChat;
+}
+
+function scrubHelpLeak(html) {
+  let out = String(html || "");
+  try {
+    if (typeof DEV_PASSCODE === "string" && DEV_PASSCODE) {
+      const re = new RegExp(DEV_PASSCODE.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi");
+      out = out.replace(re, "[redacted]");
+    }
+  } catch (_) {}
+  return out;
+}
+
+function helpBotReply(raw) {
+  const q = String(raw || "").trim();
+  if (!q) return "Ask me anything about how SkyTycoon works.";
+
+  // Never reveal developer access — refuse before any FAQ matching.
+  if (HELP_DEV_ASK.test(q) ||
+      (typeof DEV_PASSCODE === "string" && DEV_PASSCODE &&
+       q.toLowerCase().includes(DEV_PASSCODE.toLowerCase()))) {
+    return "I can’t share developer access codes or unlock cheats. The 🛠 button is for the game author — you don’t need it for normal play. Ask me about routes, fuel, charters, or any other game feature instead!";
   }
-  return intro + items.map(item => {
-    const isOpen = open === item.id;
-    return `<div class="card help-card ${isOpen ? "open" : ""}">
-      <button class="help-q" onclick="uiHelpToggle('${item.id}')">
-        <span>${item.q}</span>
-        <span class="help-chevron">${isOpen ? "▾" : "▸"}</span>
-      </button>
-      ${isOpen ? `<div class="help-a">${item.a}</div>` : ""}
-    </div>`;
+
+  const tokens = q.toLowerCase()
+    .replace(/[^a-z0-9\s+-]/g, " ")
+    .split(/\s+/)
+    .filter(t => t.length > 1 && !HELP_STOP.has(t));
+
+  if (!tokens.length) {
+    return "Try a topic like <b>fuel</b>, <b>charters</b>, <b>hubs</b>, or <b>leasing</b> — or tap a suggestion below.";
+  }
+
+  let best = null, bestScore = 0;
+  for (const item of HELP_FAQ) {
+    const qLow = item.q.toLowerCase();
+    const aLow = item.a.replace(/<[^>]+>/g, " ").toLowerCase();
+    const keySet = new Set((item.keys || []).map(k => k.toLowerCase()));
+    let score = 0;
+    for (const t of tokens) {
+      if (keySet.has(t)) score += 5;
+      else if (qLow.includes(t)) score += 3;
+      else if (aLow.includes(t)) score += 1;
+      // soft prefix (e.g. "airport" ↔ "airports")
+      for (const k of keySet) {
+        if (k.startsWith(t) || t.startsWith(k)) { score += 2; break; }
+      }
+    }
+    if (score > bestScore) { bestScore = score; best = item; }
+  }
+
+  if (!best || bestScore < 3) {
+    const samples = HELP_FAQ.filter(x => x.id !== "controls")
+      .slice(0, 4).map(x => x.q.replace(/\?$/, "")).join("; ");
+    return `I’m not sure about that. I can help with things like: ${esc(samples)}… Try rephrasing, or tap a topic chip.`;
+  }
+  return scrubHelpLeak(`<b>${best.q}</b><br><br>${best.a}`);
+}
+
+function renderHelp() {
+  const chat = ensureHelpChat();
+  const chips = HELP_FAQ.map(item =>
+    `<button type="button" class="chip help-chip" onclick="uiHelpChip('${item.id}')">${esc(item.q.replace(/\?$/, ""))}</button>`
+  ).join("");
+  const msgs = chat.map(m => {
+    if (m.role === "user") {
+      return `<div class="help-msg help-msg-user"><div class="help-bubble">${esc(m.text)}</div></div>`;
+    }
+    return `<div class="help-msg help-msg-bot"><div class="help-bubble">${scrubHelpLeak(m.html)}</div></div>`;
   }).join("");
+  return `
+    <div class="help-chat">
+      <div class="muted mini panel-note">Ask in plain English — answers come from the in-game guide.</div>
+      <div class="help-chat-log" id="help-chat-log">${msgs}</div>
+      <div class="help-chips">${chips}</div>
+      <form class="help-chat-form" onsubmit="return uiHelpAsk(event)">
+        <input id="help-chat-q" type="text" maxlength="240" placeholder="Ask about fuel, hubs, charters…"
+          autocomplete="off" aria-label="Ask help">
+        <button type="submit" class="btn btn-gold">Ask</button>
+      </form>
+      <div class="card-actions" style="margin-top:8px">
+        <button type="button" class="btn mini-btn" onclick="uiHelpClear()">Clear chat</button>
+      </div>
+    </div>`;
 }
 
-function uiHelpSearch(val) {
-  UI.helpSearch = val;
+function uiHelpAsk(e) {
+  if (e && e.preventDefault) e.preventDefault();
+  const inp = document.getElementById("help-chat-q");
+  const q = (inp && inp.value || "").trim();
+  if (!q) return false;
+  const chat = ensureHelpChat();
+  chat.push({ role: "user", text: q });
+  chat.push({ role: "bot", html: helpBotReply(q) });
+  while (chat.length > 48) chat.shift();
+  if (inp) inp.value = "";
   refreshPanel(true);
-  const inp = document.querySelector("#panel-body .help-search input");
-  if (inp) { inp.focus(); const n = inp.value.length; inp.setSelectionRange(n, n); }
+  requestAnimationFrame(() => {
+    const log = document.getElementById("help-chat-log");
+    if (log) log.scrollTop = log.scrollHeight;
+    const n = document.getElementById("help-chat-q");
+    if (n) n.focus();
+  });
+  return false;
 }
 
-function uiHelpToggle(id) {
-  UI.helpQ = UI.helpQ === id ? null : id;
+function uiHelpChip(id) {
+  const item = HELP_FAQ.find(x => x.id === id);
+  if (!item) return;
+  const chat = ensureHelpChat();
+  chat.push({ role: "user", text: item.q });
+  chat.push({ role: "bot", html: scrubHelpLeak(`<b>${item.q}</b><br><br>${item.a}`) });
+  while (chat.length > 48) chat.shift();
+  refreshPanel(true);
+  requestAnimationFrame(() => {
+    const log = document.getElementById("help-chat-log");
+    if (log) log.scrollTop = log.scrollHeight;
+  });
+}
+
+function uiHelpClear() {
+  UI.helpChat = [helpWelcome()];
   refreshPanel(true);
 }
 
@@ -4287,6 +4414,236 @@ function uiPaperIdx(i) {
   refreshPanel(true);
 }
 
+// ---------------- first-run tutorial ----------------
+
+const TUTORIAL = [
+  {
+    id: "offer",
+    title: "Take a quick tour?",
+    body: `You’ve founded your airline with a free starter jet and $100M. Want a guided walkthrough of the side panels, routing, ticket prices, the used market, and more?<br><br><span class="muted mini">You can exit anytime — nothing is locked behind the tour.</span>`,
+    offer: true,
+  },
+  {
+    id: "topbar",
+    title: "Your flight deck (top bar)",
+    body: `Up top you’ll always see <b>cash</b>, <b>⭐ points</b>, <b>fuel</b>, <b>CO₂ quota</b>, and the <b>game clock</b>. Pause with the ⏸ button when you need a breath.<br><br>The airport search box jumps the globe to any market — handy when you’re planning hubs and routes.`,
+  },
+  {
+    id: "globe",
+    title: "The globe",
+    body: `Drag to spin, or use <b>WASD / arrow keys</b> the same way. Scroll or pinch to zoom — tiny airports only appear up close. Tap an airport for hub info, or a plane icon for its flight card.<br><br>Your home hub and parked aircraft always stay visible.`,
+  },
+  {
+    id: "buy",
+    title: "Purchase Aircraft",
+    body: `This is the new-jet catalogue. Filter by maker or search by name, then <b>Configure & order</b> — engines, cabin layout, and paint. Deliveries take game time; your free starter is already on the ramp at your hub.`,
+    panel: "buy",
+    shopTab: "new",
+    highlight: "buy",
+  },
+  {
+    id: "used",
+    title: "Used market",
+    body: `Switch to the <b>Used</b> tab for second-hand airframes — cheaper, with real hours and wear. Stock reshuffles every couple of days. Classics (Concorde, early 747s…) and some freighters often show up only here. Cargo jets still need the cargo division unlocked before you can buy them.`,
+    panel: "buy",
+    shopTab: "used",
+    highlight: "buy",
+  },
+  {
+    id: "fleet",
+    title: "Fleet Management",
+    body: `Your whole airline lives here — every airframe, charter desk (later), hangar orders, and Configure. From a plane card you can assign routes, send to maintenance, sell/return leases, and tweak Wi‑Fi, entertainment, and cabin class mix.`,
+    panel: "fleet",
+    highlight: "fleet",
+  },
+  {
+    id: "route",
+    title: "Your turn: create a route",
+    body: `On your starter jet, press <b>Assign route</b> (or Route). Pick a destination within range — nearby big cities work well — set ticket price if you like, then <b>Save route</b>.<br><br><span class="ok-text">Waiting until you’ve saved a route…</span> (or skip ahead)`,
+    panel: "fleet",
+    highlight: "fleet",
+    wait: "route",
+  },
+  {
+    id: "fares",
+    title: "Ticket pricing",
+    body: `On the route form, <b>Ticket price</b> is a % of the standard fare. Higher fares earn more per passenger but book fewer seats; lower fares fill the cabin. Use <b>Suggested</b> for a solid starting point. Business / First can be priced separately if those cabins exist.`,
+    panel: "fleet",
+    highlight: "fleet",
+  },
+  {
+    id: "planeCard",
+    title: "Your turn: open a plane card",
+    body: `Click your plane on the <b>globe</b> (or its row in Fleet). The card shows altitude, landing time, passenger thoughts, flight log, and — while grounded — Assign / Edit route plus Passenger view.<br><br><span class="ok-text">Waiting for you to open a plane card…</span>`,
+    wait: "planeCard",
+  },
+  {
+    id: "depart",
+    title: "Getting airborne",
+    body: `With a route set, planes need <b>fuel</b> and low enough wear. Without the Dispatch office (Company → Training), press <b>Depart</b> after each turnaround. Buy Dispatch once and departures run themselves.`,
+    panel: "fleet",
+    highlight: "fleet",
+  },
+  {
+    id: "maint",
+    title: "Maintenance",
+    body: `Wear climbs with flight hours. High wear hurts bookings and can safety-ground the jet. Schedule checks here (or from Fleet) — they cost cash and take the airframe offline for a while.`,
+    panel: "maint",
+    highlight: "maint",
+  },
+  {
+    id: "fuel",
+    title: "Fuel & CO₂",
+    body: `Buy jet fuel and CO₂ quota when prices dip, and expand tanks with ⭐ points. <b>No fuel = held at the gate.</b> You can overdraw CO₂, but each overdraft departure costs reputation — so keep an eye on the green tank.`,
+    panel: "fuel",
+    highlight: "fuel",
+  },
+  {
+    id: "marketing",
+    title: "Marketing campaigns",
+    body: `Launch time-limited campaigns to boost passenger demand or reputation. Catering and alliances live here too — meals sell onboard for a profit and lift demand, while alliances add codeshare traffic once you’ve earned enough points.`,
+    panel: "marketing",
+    mktTab: "marketing",
+    highlight: "marketing",
+  },
+  {
+    id: "finance",
+    title: "Finance ledger",
+    body: `The <b>Finance</b> tab is your P&amp;L — ticket income, fuel, payroll, leases, and more. Check it after a busy day to see what’s making (or bleeding) money. Lounges are designed hub-by-hub under the Lounges tab.`,
+    panel: "marketing",
+    mktTab: "finance",
+    highlight: "marketing",
+  },
+  {
+    id: "events",
+    title: "World Events",
+    body: `Headlines shift demand and prices. Weather warnings spawn storms that can hold departures or force diversions. Every Sunday the <b>Weekly Gazette</b> digests the week’s storms, rival deals, and big news.`,
+    panel: "events",
+    highlight: "events",
+  },
+  {
+    id: "company",
+    title: "Company HQ",
+    body: `Reputation, staff, training academy, flight school, subsidiaries, map style, and lifetime stats all live here. Training unlocks Dispatch, chef tiers, pilot levels for widebodies, and more — spend ⭐ wisely.`,
+    panel: "company",
+    highlight: "company",
+  },
+  {
+    id: "help",
+    title: "Help desk",
+    body: `Stuck later? Open <b>Help</b> and ask the in-game chatbot, or tap a topic chip. It knows SkyTycoon’s rules — fuel, charters, leasing, schools — and won’t hand out cheat codes.`,
+    panel: "help",
+    highlight: "help",
+  },
+  {
+    id: "done",
+    title: "You’re cleared to taxi",
+    body: `That’s the tour. Grow the fleet, open hubs, watch fuel &amp; reputation, and check Finance when cash feels tight. Have fun building your airline — and reopen Help anytime if something’s unclear.`,
+    panel: "fleet",
+    highlight: "fleet",
+  },
+];
+
+function offerTutorial() {
+  UI.tut = { i: 0, active: true };
+  renderTutorial();
+}
+
+function tutActive() {
+  return !!(UI.tut && UI.tut.active);
+}
+
+function tutStep() {
+  if (!tutActive()) return null;
+  return TUTORIAL[UI.tut.i] || null;
+}
+
+function renderTutorial() {
+  const el = $("#tutorial");
+  if (!el) return;
+  const step = tutStep();
+  if (!step) {
+    el.classList.add("hidden");
+    document.body.classList.remove("tut-on");
+    delete document.body.dataset.tutPanel;
+    return;
+  }
+  el.classList.remove("hidden");
+  document.body.classList.add("tut-on");
+  if (step.highlight) document.body.dataset.tutPanel = step.highlight;
+  else delete document.body.dataset.tutPanel;
+
+  // Open the matching panel / tab for this beat
+  if (step.panel) {
+    if (step.shopTab) UI.shopTab = step.shopTab;
+    if (step.mktTab) UI.mktTab = step.mktTab;
+    if (UI.panel !== step.panel) openPanel(step.panel, { force: true });
+    else refreshPanel(true);
+  } else if (UI.panel && (step.id === "topbar" || step.id === "globe" || step.id === "planeCard")) {
+    closePanel();
+  }
+
+  const total = TUTORIAL.length;
+  const idx = UI.tut.i;
+  $("#tut-step").textContent = step.offer ? "Optional" : `${idx} / ${total - 1}`;
+  $("#tut-title").textContent = step.title;
+  $("#tut-body").innerHTML = step.body;
+
+  const actions = $("#tut-actions");
+  if (step.offer) {
+    actions.innerHTML = `
+      <button type="button" class="btn" onclick="tutDecline()">No thanks</button>
+      <button type="button" class="btn btn-gold" onclick="tutAccept()">Start tour</button>`;
+  } else if (step.id === "done") {
+    actions.innerHTML = `
+      <button type="button" class="btn btn-gold" onclick="tutExit(true)">Finish</button>`;
+  } else {
+    const waitHint = step.wait
+      ? `<span class="tut-wait muted mini">Do the step above, or continue</span>`
+      : "";
+    actions.innerHTML = `
+      <button type="button" class="btn" onclick="tutExit()">Exit tutorial</button>
+      ${waitHint}
+      <button type="button" class="btn btn-gold" onclick="tutNext()">${step.wait ? "Skip ahead" : "Next"}</button>`;
+  }
+}
+
+function tutAccept() {
+  if (!tutActive()) return;
+  UI.tut.i = 1;
+  renderTutorial();
+}
+
+function tutDecline() {
+  tutExit(false);
+  openPanel("buy");
+  toast("Tour skipped — Help is always in the sidebar if you need it.");
+}
+
+function tutNext() {
+  if (!tutActive()) return;
+  UI.tut.i = Math.min(UI.tut.i + 1, TUTORIAL.length - 1);
+  renderTutorial();
+}
+
+function tutExit(finished) {
+  UI.tut = { i: 0, active: false };
+  const el = $("#tutorial");
+  if (el) el.classList.add("hidden");
+  document.body.classList.remove("tut-on");
+  delete document.body.dataset.tutPanel;
+  if (finished) {
+    openPanel("fleet");
+    toast("Tutorial complete — have fun!");
+  }
+}
+
+function tutNotify(kind) {
+  const step = tutStep();
+  if (!step || !step.wait) return;
+  if (step.wait === kind) tutNext();
+}
+
 // ---------------- onboarding ----------------
 
 function showOnboarding() {
@@ -4377,8 +4734,8 @@ function startGame() {
   $("#onboard").classList.add("hidden");
   renderTopbar();
   pumpNotifs();
-  openPanel("buy");
   toast(mapStyle === "simple"
     ? "Simple map selected — change anytime in Company."
     : "Texture map selected — change anytime in Company.");
+  offerTutorial();
 }

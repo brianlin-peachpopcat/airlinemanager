@@ -8,9 +8,9 @@ dhc6.jpg - De Havilland Canada DHC-6 Twin Otter
 b74sp.jpg - 747SP
 ka350.jpg - Super King Air
 atr42.jpg - ATR 42
-crj7.jpg - CRJ700 series
+crj7.jpg - from Commons search "Bombardier CRJ700" - https://commons.wikimedia.org/wiki/File:2018_ADRIA_Airways_Bombardier_CRJ700_S5-AAY_at_ZRH_01.jpg
 crj9.jpg - CRJ900
-e175.jpg - E-Jet family
+e175.jpg - from Commons search "Embraer E175 American Eagle" - https://commons.wikimedia.org/wiki/File:American_Eagle_Embraer_E175_Coming_in_For_a_Landing_(50178347802).jpg
 e195e2.jpg - E195-E2 aircraft
 a21x.jpg - A321XLR
 a310.jpg - A310
@@ -21,7 +21,7 @@ an124.jpg - Antonov An-124 Ruslan
 an225.jpg - Antonov An-225 Mriya
 c208.jpg - 208 Grand Caravan in flight
 c408.jpg - 408 SkyCourier
-b1900.jpg - 1900
+b1900.jpg - Beechcraft 1900D airline
 dc9.jpg - DC-9
 a318.jpg - A318
 dc10.jpg - DC-10
@@ -36,7 +36,7 @@ e190e2.jpg - E-Jet E2 family
 a220.jpg - A220
 a320n.jpg - A320neo family
 b38m.jpg - 737 MAX
-a321n.jpg - A321neo
+a321n.jpg - Airbus A321neo landing
 b752.jpg - Boeing 757-200 landing
 b763.jpg - Boeing 767-300ER takeoff
 a339.jpg - A330neo
@@ -65,9 +65,9 @@ b77l.jpg - 777-200LR
 b74d.jpg - 747-400D
 il964.jpg - Ilyushin Il-96-400
 il96.jpg - Ilyushin Il-96
-s340.jpg - from Commons search "Saab 340 airline landing" - https://commons.wikimedia.org/wiki/File:Central_Connect_Airlines_Saab_340_OK-CCC.jpg
-b146.jpg - from Commons search "BAe 146 landing" - https://commons.wikimedia.org/wiki/File:Denver_United_BAe_146_Landing_03-18-17A_(38445205740).jpg
-a35f.jpg - from Commons search "A350 freighter" - https://commons.wikimedia.org/wiki/File:Tugboat-ship-Duluth-20060528.jpg
+s340.jpg - Saab 340 airline landing
+b146.jpg - BAe 146 landing
+a35f.jpg - from Commons search "Airbus A350-941 landing" - https://commons.wikimedia.org/wiki/File:Airbus_A350-941_F-WWCF_MSN002_ILA_Berlin_2016_23.jpg
 a333.jpg - A330-300 landing
 b738f.jpg - 737-8AS takeoff
 b763f.jpg - 767-300F
@@ -86,9 +86,9 @@ dhc6-used.jpg - De Havilland Canada DHC-6 Twin Otter
 b74sp-used.jpg - 747SP
 ka350-used.jpg - Super King Air
 atr42-used.jpg - ATR 42
-crj7-used.jpg - CRJ700 series
+crj7-used.jpg - from Commons search "CRJ700 takeoff" - https://commons.wikimedia.org/wiki/File:Lufthansa_regional_cityline_crj700_d-acph_takeoff_arp.jpg
 crj9-used.jpg - CRJ900
-e175-used.jpg - E-Jet family
+e175-used.jpg - from Commons search "Embraer 175 airline" - https://commons.wikimedia.org/wiki/File:American_Eagle_Embraer_175.jpg
 e195e2-used.jpg - E195-E2 aircraft
 a21x-used.jpg - A321XLR
 a310-used.jpg - A310
@@ -99,7 +99,7 @@ an124-used.jpg - Antonov An-124 Ruslan
 an225-used.jpg - Antonov An-225 Mriya
 c208-used.jpg - 208 Grand Caravan in flight
 c408-used.jpg - 408 SkyCourier
-b1900-used.jpg - 1900
+b1900-used.jpg - Beechcraft 1900D airline
 dc9-used.jpg - DC-9
 a318-used.jpg - A318
 dc10-used.jpg - DC-10
@@ -114,7 +114,7 @@ e190e2-used.jpg - E-Jet E2 family
 a220-used.jpg - A220
 a320n-used.jpg - A320neo family
 b38m-used.jpg - 737 MAX
-a321n-used.jpg - A321neo
+a321n-used.jpg - Airbus A321neo landing
 b752-used.jpg - Boeing 757-200 landing
 b763-used.jpg - Boeing 767-300ER takeoff
 a339-used.jpg - A330neo
@@ -143,9 +143,8 @@ b77l-used.jpg - 777-200LR
 b74d-used.jpg - 747-400D
 il964-used.jpg - Ilyushin Il-96-400
 il96-used.jpg - Ilyushin Il-96
-s340-used.jpg - from Commons search "Saab 340 airline landing" - https://commons.wikimedia.org/wiki/File:Regional_Express_Saab_340_VH-ZXU_Perth_2024_(01).jpg
-b146-used.jpg - from Commons search "BAe 146 landing" - https://commons.wikimedia.org/wiki/File:Air_Dolomiti_BAe_146-300_Pierobon.jpg
-a35f-used.jpg - A350 freighter
+s340-used.jpg - Saab 340 airline landing
+b146-used.jpg - BAe 146 landing
 a333-used.jpg - A330-300 landing
 b738f-used.jpg - 737-8AS takeoff
 b763f-used.jpg - 767-300F

@@ -64,6 +64,7 @@ setInterval(() => save(), 15000);
 window.addEventListener("beforeunload", () => save());
 window.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
+  if (tutActive()) { tutExit(); return; }
   if (UI.paxViewId) { closePaxView(); return; }
   if (UI.planeCardId) closePlaneCard();
 });

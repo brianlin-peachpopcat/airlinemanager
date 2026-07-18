@@ -130,7 +130,55 @@ class Globe {
       this._earthKey = "";
     }, { passive: false });
 
+    // WASD / arrows — same orbit as mouse drag (W/↑ = drag up, etc.)
+    this._keys = new Set();
+    const panCodes = {
+      KeyW: 1, KeyA: 1, KeyS: 1, KeyD: 1,
+      ArrowUp: 1, ArrowDown: 1, ArrowLeft: 1, ArrowRight: 1,
+    };
+    const typingFocus = () => {
+      const el = document.activeElement;
+      if (!el) return false;
+      const tag = el.tagName;
+      return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || el.isContentEditable;
+    };
+    window.addEventListener("keydown", (e) => {
+      if (!panCodes[e.code] || typingFocus()) return;
+      e.preventDefault();
+      if (!this._keys.has(e.code)) {
+        this._keys.add(e.code);
+        this._vLon = 0; this._vTilt = 0;   // kill spin momentum, same as grab
+      }
+    });
+    window.addEventListener("keyup", (e) => { this._keys.delete(e.code); });
+    window.addEventListener("blur", () => { this._keys.clear(); });
+
     this._loadEarthTexture();
+  }
+
+  // Apply held WASD / arrow keys as if the mouse were dragging that way.
+  _applyKeyPan() {
+    if (!this._keys || !this._keys.size) { this._keyPanning = false; return; }
+    const el = document.activeElement;
+    if (el && (/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) || el.isContentEditable)) {
+      this._keyPanning = false;
+      return;
+    }
+    let dx = 0, dy = 0;
+    if (this._keys.has("KeyA") || this._keys.has("ArrowLeft")) dx -= 1;
+    if (this._keys.has("KeyD") || this._keys.has("ArrowRight")) dx += 1;
+    if (this._keys.has("KeyW") || this._keys.has("ArrowUp")) dy -= 1;   // mouse-up
+    if (this._keys.has("KeyS") || this._keys.has("ArrowDown")) dy += 1;
+    if (!dx && !dy) { this._keyPanning = false; return; }
+    const len = Math.hypot(dx, dy);
+    dx /= len; dy /= len;
+    // ~7 px of drag per frame — matches a steady mouse pan at 60 fps
+    const px = 7;
+    const dLon = (dx * px) / (this.radius() * 1.1);
+    const dTilt = (dy * px) / (this.radius() * 1.1);
+    this.rotLon += dLon;
+    this.tilt = Math.max(-1.55, Math.min(1.55, this.tilt + dTilt));
+    this._keyPanning = true;
   }
 
   // Equirectangular Earth plate → sampled onto the orthographic sphere.
@@ -211,6 +259,7 @@ class Globe {
 
     const now = typeof performance !== "undefined" ? performance.now() : Date.now();
     const busy = this.dragging
+      || this._keyPanning
       || now < (this._zoomBusyUntil || 0)
       || Math.abs(this._vLon || 0) > 0.0002
       || Math.abs(this._vTilt || 0) > 0.0002;
@@ -474,8 +523,11 @@ class Globe {
     ctx.scale(this.dpr, this.dpr);
     ctx.clearRect(0, 0, this.w, this.h);
 
+    this._applyKeyPan();
+
     // spin momentum after release, easing out
-    if (!this.dragging && (Math.abs(this._vLon || 0) > 0.00004 || Math.abs(this._vTilt || 0) > 0.00004)) {
+    if (!this.dragging && !this._keyPanning &&
+        (Math.abs(this._vLon || 0) > 0.00004 || Math.abs(this._vTilt || 0) > 0.00004)) {
       this.rotLon += this._vLon;
       this.tilt = Math.max(-1.55, Math.min(1.55, this.tilt + this._vTilt));
       this._vLon *= 0.95;
@@ -668,6 +720,8 @@ class Globe {
         const text = band >= 9 ? `${ap.code} · ${ap.city}` : ap.code;
         ctx.font = band >= 9 ? "600 11px system-ui, sans-serif" : "600 10px system-ui, sans-serif";
         ctx.lineWidth = 3;
+        ctx.lineJoin = "round";
+        ctx.miterLimit = 2;
         ctx.strokeStyle = "rgba(10,30,60,0.75)";
         ctx.strokeText(text, lx, ly);
         ctx.fillStyle = (isHub || isOwnedHub) ? "#ffe08a" : "#ffffff";
@@ -717,6 +771,8 @@ class Globe {
         });
         if (n > show.length) {
           ctx.lineWidth = 3;
+          ctx.lineJoin = "round";
+          ctx.miterLimit = 2;
           ctx.strokeStyle = "rgba(10,30,60,0.75)";
           ctx.strokeText("+" + (n - show.length), s.x + 14, s.y + 22);
           ctx.fillStyle = "rgba(235,242,250,0.9)";
@@ -726,6 +782,8 @@ class Globe {
         drawOne(s.x, s.y + 10, null);
         if (n > 1) {
           ctx.lineWidth = 3;
+          ctx.lineJoin = "round";
+          ctx.miterLimit = 2;
           ctx.strokeStyle = "rgba(10,30,60,0.75)";
           ctx.strokeText("x" + n, s.x + 8, s.y + 14);
           ctx.fillStyle = "rgba(235,242,250,0.9)";
@@ -741,6 +799,9 @@ class Globe {
     const size = Math.max(8, Math.min(14, R * 0.028));
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
+    // Round joins — sharp miter spikes on M / X / A look like black triangles.
+    ctx.lineJoin = "round";
+    ctx.miterLimit = 2;
     for (const [lat, lon, text, kind] of LANDMARKS) {
       const p = this.project(lat, lon);
       if (p.z <= 0.22) continue;                       // hide near the limb / far side

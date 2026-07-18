@@ -21,9 +21,9 @@ ARTICLES = {
     "b74sp":  "747SP",
     "ka350":  "Super King Air",
     "atr42":  "ATR 42",
-    "crj7":   "CRJ700 series",
+    "crj7":   "Bombardier CRJ700",
     "crj9":   "CRJ900",
-    "e175":   "E-Jet family",
+    "e175":   "Embraer E175",
     "e195e2": "E195-E2",
     "a21x":   "A321XLR",
     "a310":   "A310",
@@ -34,7 +34,7 @@ ARTICLES = {
     "an225":  "Antonov An-225 Mriya",
     "c208":   "208 Caravan",
     "c408":   "408 SkyCourier",
-    "b1900":  "1900",
+    "b1900":  "Beechcraft 1900",
     "dc9":    "DC-9",
     "a318":   "A318",
     "dc10":   "DC-10",
@@ -49,7 +49,7 @@ ARTICLES = {
     "a220":   "A220",
     "a320n":  "A320neo family",
     "b38m":   "737 MAX",
-    "a321n":  "A321neo",
+    "a321n":  "Airbus A321neo",
     "b752":   "757",
     "b763":   "767",
     "a339":   "A330neo",
@@ -82,6 +82,7 @@ ARTICLES = {
     "il96":   "Ilyushin Il-96",
     "s340":   "Saab 340",
     "b146":   "British Aerospace 146",
+    # A350F freighter photos are scarce on Commons; use a clear A350 airframe shot.
     "a35f":   "Airbus A350",
 }
 
@@ -122,7 +123,11 @@ COMMONS = {
     "il964":  "Ilyushin Il-96-400",
     "s340":   "Saab 340 airline landing",
     "b146":   "BAe 146 landing",
-    "a35f":   "A350 freighter",
+    "a35f":   "Airbus A350-941 landing",
+    "b1900":  "Beechcraft 1900D airline",
+    "crj7":   "Bombardier CRJ700",
+    "e175":   "Embraer E175 American Eagle",
+    "a321n":  "Airbus A321neo landing",
     "b752":   "Boeing 757-200 landing",
     "b763":   "Boeing 767-300ER takeoff",
     "b77w":   "Boeing 777-300ER landing",
@@ -135,7 +140,7 @@ COMMONS = {
 USED_COMMONS = {
     "a320":   "A320 classic livery",
     "a320n":  "A320neo takeoff",
-    "a321n":  "A321neo landing",
+    "a321n":  "A321neo Wizz Air",
     "a21x":   "A321XLR prototype",
     "a318":   "A318 British Airways",
     "a220":   "A220",
@@ -150,7 +155,7 @@ USED_COMMONS = {
     "a359":   "A350-900 Singapore",
     "a35k":   "A350-1000 Cathay",
     "a35u":   "A350-900ULR Singapore",
-    "a35f":   "A350F freighter",
+    "a35f":   "Airbus A350-900 Singapore",
     "a388":   "A380 takeoff",
     "b737":   "737-700 Southwest",
     "b738":   "737-800",
@@ -178,15 +183,15 @@ USED_COMMONS = {
     "l1011":  "L-1011",
     "atr42":  "ATR 42 airline",
     "atr72":  "ATR 72 Finnair",
-    "crj7":   "CRJ700",
+    "crj7":   "CRJ700 takeoff",
     "crj9":   "CRJ900",
     "q400":   "De Havilland Dash 8 Q400",
-    "e175":   "E175",
+    "e175":   "Embraer 175 airline",
     "e190e2": "E190-E2",
     "e195e2": "E195-E2",
     "c208":   "208 Caravan",
     "c408":   "408 SkyCourier",
-    "b1900":  "1900D",
+    "b1900":  "Beech 1900D Air New Zealand",
     "ka350":  "King Air 350",
     "dhc6":   "DHC-6 Twin Otter",
     "blgxl":  "BelugaXL",
@@ -290,23 +295,30 @@ def fetch_used(pid, kind, ref):
     return f"{pid}{USED_SUFFIX}.jpg - from {credit}", "OK"
 
 
-def main():
+def main(force=None):
+    force = set(force or [])
     os.makedirs("img", exist_ok=True)
     credits = []
+    # Commons overrides Wikipedia when both exist (better photo control).
     sources = {**{k: ("article", v) for k, v in ARTICLES.items()},
                **{k: ("commons", v) for k, v in COMMONS.items()}}
     for pid, (kind, ref) in sources.items():
         try:
-            if os.path.exists(f"img/{pid}.jpg"):
+            path = f"img/{pid}.jpg"
+            if os.path.exists(path) and pid not in force:
                 credits.append(f"{pid}.jpg - {ref}")
                 print(f"HAVE {pid}")
                 continue
+            if pid in force and os.path.exists(path):
+                os.remove(path)
             time.sleep(2.5)   # be polite to the API
             thumb, credit = wikipedia_thumb(ref) if kind == "article" else commons_thumb(ref)
+            if not thumb and kind == "article":
+                thumb, credit = commons_thumb(ref)
             if not thumb:
                 print(f"SKIP {pid} ({ref}): no image found")
                 continue
-            with get(thumb) as r, open(f"img/{pid}.jpg", "wb") as f:
+            with get(thumb) as r, open(path, "wb") as f:
                 f.write(r.read())
             credits.append(f"{pid}.jpg - from {credit}")
             print(f"OK   {pid} <- {ref}")
@@ -315,6 +327,9 @@ def main():
     # used-market alternates (separate photo per type)
     for pid, (kind, ref) in sources.items():
         try:
+            used_path = f"img/{pid}{USED_SUFFIX}.jpg"
+            if pid in force and os.path.exists(used_path):
+                os.remove(used_path)
             credit, status = fetch_used(pid, kind, ref)
             if status == "HAVE":
                 credits.append(credit)
@@ -336,4 +351,5 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    import sys
+    main(force=sys.argv[1:])
