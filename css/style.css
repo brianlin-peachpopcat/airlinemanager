@@ -1714,65 +1714,20 @@ body.ui-chrome-off #devpanel {
 .hist-route { min-width: 96px; }
 .hist-when { margin-left: auto; }
 
-/* help chatbot */
+/* help guide (matches panel-tip blurbs) */
 .charter-brief { font-style: italic; color: var(--ink-2); }
-.help-chat { display: flex; flex-direction: column; gap: 10px; min-height: 0; }
-.help-chat-log {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  max-height: min(48vh, 420px);
-  overflow-y: auto;
-  padding: 4px 2px 8px;
-  border-bottom: 1px solid var(--line);
-}
-.help-msg { display: flex; }
-.help-msg-user { justify-content: flex-end; }
-.help-msg-bot { justify-content: flex-start; }
-.help-bubble {
-  max-width: 92%;
-  padding: 9px 12px;
-  border-radius: 12px;
-  font-size: 13px;
-  line-height: 1.45;
-  color: var(--ink-2);
-}
-.help-msg-user .help-bubble {
-  background: rgba(80, 140, 220, 0.22);
-  border: 1px solid rgba(120, 170, 240, 0.35);
-  color: var(--ink);
-  border-bottom-right-radius: 4px;
-}
-.help-msg-bot .help-bubble {
-  background: var(--panel-2);
-  border: 1px solid var(--line);
-  border-bottom-left-radius: 4px;
-}
-.help-msg-bot .help-bubble b { color: var(--gold); font-weight: 650; }
-.help-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  max-height: 88px;
-  overflow-y: auto;
-}
-.help-chip {
-  font-size: 11px;
-  max-width: 100%;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.help-chat-form {
+.help-guide { display: flex; flex-direction: column; gap: 0; }
+.help-ask {
   display: flex;
   gap: 8px;
   align-items: center;
+  margin-bottom: 10px;
 }
-.help-chat-form input {
+.help-ask input {
   flex: 1;
   min-width: 0;
   box-sizing: border-box;
-  padding: 9px 11px;
+  padding: 8px 10px;
   border-radius: 8px;
   border: 1px solid var(--line);
   background: var(--panel-2);
@@ -1780,5 +1735,16 @@ body.ui-chrome-off #devpanel {
   font: inherit;
   font-size: 13px;
 }
-.help-chat-form input:focus { outline: none; border-color: var(--accent); }
-.help-chat-form .btn { flex-shrink: 0; }
+.help-ask input:focus { outline: none; border-color: var(--accent); }
+.help-ask .btn { flex-shrink: 0; }
+.help-ai-status {
+  margin: -4px 0 10px;
+  min-height: 1.2em;
+}
+.help-answer {
+  border-color: rgba(251, 191, 36, 0.35);
+  background: rgba(251, 191, 36, 0.06);
+}
+.help-answer > summary { color: var(--gold); }
+.help-topic .tip-body b,
+.help-answer .tip-body b { color: var(--ink); font-weight: 650; }

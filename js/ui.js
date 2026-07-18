@@ -4058,103 +4058,133 @@ function uiPlaneCardHist() {
   renderPlaneCard();
 }
 
-// ---------------- help / FAQ chatbot ----------------
+// ---------------- help / FAQ (ask box + tip blurbs) ----------------
 
 const HELP_FAQ = [
   {
     id: "airport",
     q: "Why don’t I see my favourite airport?",
     keys: ["airport", "airports", "zoom", "globe", "map", "dots", "jfk", "lga", "ewr", "parked", "visible"],
+    phrases: ["favourite airport", "favorite airport", "can't see", "dont see"],
     a: `The globe hides smaller markets when you’re zoomed out so the map stays readable. Scroll or pinch to zoom in — tiny airports only appear up close, and you can zoom quite far to separate metro clusters (e.g. JFK, LGA and EWR). Your hubs, route endpoints, and parked aircraft always stay visible no matter the zoom. Parked planes draw on top of airport dots so you can tap them after landing — switch to <b>Airports on top</b> under Company if you’d rather tap the dots instead.`,
   },
   {
     id: "lease",
     q: "How does leasing work?",
     keys: ["lease", "leasing", "rent", "deposit", "return", "cooldown", "cool-down"],
+    phrases: ["leasing work", "lease fee"],
     a: `Leasing lets you fly a jet without paying the full sticker price. You pay a small deposit up front (about 5% of list price), then a daily lease fee while you have it. Every lease lasts ${LEASE_MAX_DAYS} game days — when the clock runs out the airframe goes back to the manufacturer automatically (or you can return it early from Fleet Management).<br><br>After a lease ends (or you return it), that maker puts you on a ${LEASE_COOLDOWN_DAYS}-day cool-down and charges roughly ${Math.round((LEASE_SURCHARGE - 1) * 100)}% more if you lease from them again during that window. Leased planes can’t be sold — only returned.`,
   },
   {
     id: "depart",
     q: "Why won’t my plane depart?",
     keys: ["depart", "departure", "ready", "dispatch", "won't", "wont", "stuck", "gate", "held"],
-    a: `Check three things: <b>fuel</b> (no fuel = held at the gate), <b>maintenance</b> (worn-out airframes get safety-grounded), and <b>dispatch</b>. Without the Dispatch office (Company → Training), planes wait at “Ready” after every turnaround until you press Depart. Buy the office once and departures run themselves.`,
+    phrases: ["won't depart", "wont depart", "auto depart", "dispatch office"],
+    a: `Check three things: <b>fuel</b> (no fuel = held at the gate), <b>maintenance</b> (worn-out airframes get safety-grounded), and <b>dispatch</b>. Without the Dispatch office (Company → Training), planes wait at “Ready” after every turnaround until you press Depart. Staff the office once for ${AUTODEPART_TP} training points and departures run themselves.`,
   },
   {
     id: "demand",
     q: "How does route demand work?",
     keys: ["demand", "passengers", "pax", "pool", "empty", "load", "fill", "bookings"],
+    phrases: ["route demand", "passenger pool"],
     a: `Each city-pair has a finite passenger (and freight) pool that refills on a schedule — every <b>24 hours</b> on Normal and Realism, every <b>12 hours</b> on Easy. Flying a route uses up what's left; once it's empty, further flights leave nearly empty until the next reset. World events, reputation, catering, and codeshares still multiply whatever remains right now.`,
   },
   {
     id: "reputation",
     q: "How does reputation work?",
     keys: ["reputation", "rep", "morale", "brand", "overdraft"],
+    phrases: ["reputation work"],
     a: `Reputation roughly caps how full your planes get — around 50% rep fills about half the seats (±10%). Keep airframes tidy, look after staff morale, and run marketing to climb. Flying without enough CO₂ quota costs −${CO2_OVERDRAFT_REP} reputation per overdraft departure, and neglected high-wear aircraft chip away at the brand too.`,
   },
   {
     id: "hubs",
     q: "How do hubs and routes work?",
     keys: ["hub", "hubs", "route", "routes", "international", "domestic", "slots"],
+    phrases: ["buy a hub", "assign route", "set a route"],
     a: `Every route must depart from a hub you own. Click an airport on the globe to buy a hub there. You can hold up to ${HUB_MAX} hubs total; international hubs also share a tighter slot limit (${INTL_HUB_SLOTS} based aircraft each, max ${INTL_HUB_MAX} international hubs). Domestic hubs (same country as your home) don’t use those international slots.`,
   },
   {
     id: "fuelco2",
     q: "What’s the deal with fuel & CO₂?",
     keys: ["fuel", "co2", "carbon", "quota", "tanks", "burn"],
+    phrases: ["fuel and", "co2 quota"],
     a: `Every departure burns fuel and CO₂ quota from your tanks. No fuel = held at the gate. CO₂ is different: you <i>can</i> depart into the negatives, but each overdraft flight costs −${CO2_OVERDRAFT_REP} reputation. Buy both when prices dip (Fuel & CO₂ panel) and expand storage with ⭐ points.`,
   },
   {
     id: "storms",
     q: "What do storms do?",
     keys: ["storm", "storms", "weather", "typhoon", "divert", "diversion", "hold"],
+    phrases: ["weather warning", "gate hold"],
     a: `Active storms show up under World Events → Weather Warnings and as icons on the globe. Departures from airports inside a storm can face random gate holds. If a flight path goes through or near a storm, the plane must divert — about ${WX_DIVERT_MIN} minutes longer and a bit more fuel.`,
   },
   {
     id: "gazette",
     q: "What’s the Weekly Gazette?",
     keys: ["gazette", "newspaper", "paper", "weekly", "news"],
+    phrases: ["weekly gazette"],
     a: `Every Sunday the game prints a newspaper under World Events summarizing the week — typhoons and other storms, rival bankruptcies and mergers, your acquisitions, and significant world headlines. Flip Week chips to re-read past issues (last ${PAPER_ARCHIVE} kept).`,
   },
   {
     id: "difficulty",
     q: "What’s the difference between Easy, Normal and Realism?",
     keys: ["easy", "normal", "realism", "difficulty", "hard", "mode"],
+    phrases: ["difficulty", "realism mode"],
     a: `<b>Easy</b> discounts aircraft by class, boosts ticket & cargo revenue, cheapens marketing, seeds fewer rivals, and unlocks the Eco Friendly campaign.<br><br><b>Normal</b> is the standard balance with a free choice of game speed.<br><br><b>Realism</b> is otherwise like Normal, but airframes wear twice as fast and you’re locked to 4× speed. Difficulty is chosen when you found the airline and can’t be changed later.`,
   },
   {
     id: "charter",
     q: "How do charters and VIP jets work?",
     keys: ["charter", "charters", "vip", "bizjet", "desk", "ferry"],
+    phrases: ["charter desk", "vip jet"],
     a: `Unlock the charter desk in Fleet Management (${CHARTER_UNLOCK_PTS} ⭐). Customers call with one-off routes and a fixed payout — any passenger aircraft with the range can accept.<br><br>VIP bizjets live in their own <b>Charter</b> shop section and stay locked until the desk is open. Flying a job with one earns +${Math.round((CHARTER_SPEC_PAY - 1) * 100)}% pay and can create repeat clients.<br><br>When ordering or configuring a VIP jet you arrange the cabin with club seats, tables, couches, and beds. That’s cosmetic only — it doesn’t change charter pay. Smaller airframes (Citation, Phenom) can’t fit beds; larger VIP frames unlock more furniture.`,
   },
   {
     id: "amenities",
     q: "What do Wi-Fi, entertainment and cabin upgrades do?",
     keys: ["wifi", "wi-fi", "entertainment", "cabin", "seats", "amenity", "amenities", "freighter", "convert"],
+    phrases: ["cabin upgrade", "wifi"],
     a: `Every passenger aircraft carries three cabin systems, managed from Fleet Management → Configure: <b>Wi-Fi</b>, <b>entertainment</b> and <b>cabin & seats</b>. Better kit lifts passenger demand a little (high-speed Wi-Fi and premium interiors also earn onboard income per passenger); flying with no entertainment or a worn, dated cabin costs you bookings. New deliveries arrive with a modern loadout, but used airframes come with whatever the last owner fitted — often outdated systems or none at all. Upgrades cost money plus ${fmtDur(AMEN_DOWNTIME_MIN)} in the cabin shop, and refurbishing a used purchase includes a full modern cabin.<br><br>Airline cabins use First / Business / Economy space (F×3 · J×2 · Y×1). You can also convert many passenger jets to freighters from Configure — irreversible, with a cargo payload and a one-time cost.`,
+  },
+  {
+    id: "trainpts",
+    q: "How do training points work?",
+    keys: ["tp", "train", "academy", "dispatch", "mgmt", "management", "crew"],
+    phrases: ["training point", "training points", "train pts", "training academy", "company training", "pilot training", "cabin crew training", "management school"],
+    a: `Training points (TP) are a separate currency from ⭐ points. Crews earn about <b>1 TP every 25 departures</b> (a lucky “tricky departure”), and Flight School graduations also bank TP (narrowbody +${CLASS_TP.narrow}, widebody +${CLASS_TP.wide}).<br><br>Spend them in <b>Company → Training</b> on permanent tracks:<br>• <b>Pilot</b> — less airframe wear; level ${WIDE_PILOT_LVL} certifies widebodies<br>• <b>Cabin crew</b> — a little more passenger demand<br>• <b>Chef academy</b> — unlocks Hot / Gourmet catering menus<br>• <b>Management</b> — cheaper payroll and negotiated aircraft deals<br><br>You can also spend TP on the <b>Dispatch office</b> (${AUTODEPART_TP} TP — automatic departures) and, once your hangar is large enough, extra hangar bays (${HANGAR_TP_COST} TP each). Every academy level-up also nudges reputation up a little.`,
+  },
+  {
+    id: "chef",
+    q: "How do chefs and catering menus work?",
+    keys: ["chef", "chefs", "catering", "meal", "meals", "gourmet", "hot", "snack", "menu", "kitchen", "food"],
+    phrases: ["chef academy", "hot meals", "gourmet menu", "onboard meal", "catering"],
+    a: `Catering is stocked under <b>Finance & Marketing</b> — you buy meals in bulk, sell them onboard for a profit, and the menu lifts passenger demand while stock lasts. Unsold meals that expire are money wasted.<br><br>Without Chef training you only get <b>snack</b> service. Train <b>Chef academy</b> in Company → Training:<br>• <b>Level 1</b> (3 TP) unlocks Hot meals<br>• <b>Level 2</b> (5 TP) unlocks the Gourmet menu<br><br>Better tiers cost more to stock but sell for more and boost demand (Gourmet can also add a little reputation per flight). Chef academy is separate from Flight School — chefs don’t come from simulators.`,
   },
   {
     id: "school",
     q: "How does the Flight School work?",
-    keys: ["school", "cadet", "cadets", "simulator", "simulators", "pilot", "pilots", "training", "class"],
+    keys: ["school", "cadet", "cadets", "simulator", "simulators", "class", "campus", "graduates"],
+    phrases: ["flight school", "cadet class", "pilot pool"],
     a: `Under Company → Flight school you can build a campus at any hub and furnish it like a lounge. Desks, libraries and briefing rooms grow class sizes, instructor offices shorten courses, and <b>simulators</b> do the real work: each one runs continuous cadet classes (narrowbody ${CLASS_DAYS.narrow} days, widebody ${CLASS_DAYS.wide} days — young pilots enrol on their own). Graduates join your pilot pool and crew new deliveries at ${Math.round(CADET_PAY_MULT * 100)}% of market pay, every class banks training points, and your first widebody class certifies the whole airline for heavy aircraft without needing Pilot training Lv ${WIDE_PILOT_LVL}.`,
   },
   {
     id: "used",
     q: "What’s the used market?",
     keys: ["used", "secondhand", "second-hand", "market", "wear", "classic", "concorde"],
+    phrases: ["used market", "second hand", "secondhand"],
     a: `Under Purchase Aircraft → Used market you’ll find second-hand airframes with real hours and wear. Stock size varies (roughly a dozen to two dozen), and listings reshuffle every couple of days. Freighters show up sometimes — and retirement headlines (e.g. SpedEx parking MD-11Fs) can dump a wave onto the ramp — but buying cargo jets still needs the cargo division unlocked. Some classics (Concorde, early 747s, etc.) only appear there. Limited-production types can sell out of the new shop forever and then only show up used.`,
   },
   {
     id: "paint",
     q: "How do paint jobs work?",
     keys: ["paint", "livery", "liveries", "colour", "color", "colours", "colors"],
+    phrases: ["paint job", "livery"],
     a: `Open Configure on a plane and pick body, belly, tail, and engine colours. Saving a new livery costs $5k–$40k depending on the aircraft and puts it in the paint shop for ${fmtDur(PAINT_DOWNTIME_MIN)}. Freighters lose their cabin windows (cockpit stays). The Aerobus Orca arrives in house colours (white body, black tail); the An-225 keeps its factory paint.`,
   },
   {
     id: "controls",
     q: "How do I move the globe?",
-    keys: ["wasd", "arrows", "keyboard", "mouse", "drag", "pan", "move", "controls", "zoom", "scroll", "pinch"],
+    keys: ["wasd", "arrows", "keyboard", "mouse", "drag", "pan", "move", "controls", "scroll", "pinch"],
+    phrases: ["move the globe", "arrow keys"],
     a: `Drag with the mouse (or one finger) to spin the globe. <b>WASD</b> and the <b>arrow keys</b> do the same — W / ↑ pans up, S / ↓ down, A / ← left, D / → right. Scroll or pinch to zoom; zoom in close to reveal smaller airports.`,
   },
 ];
@@ -4164,21 +4194,10 @@ const HELP_STOP = new Set([
   "my", "me", "i", "we", "you", "your", "to", "of", "and", "or", "in", "on", "for", "with",
   "about", "can", "could", "would", "should", "tell", "please", "help", "explain", "work",
   "works", "working", "thing", "things", "this", "that", "it", "its", "be", "been",
+  "also", "any", "some", "into", "from", "when", "where", "which", "who", "whom",
 ]);
 
 const HELP_DEV_ASK = /\b(dev(eloper)?\s*(tools?)?\s*(pass(code|word)?|pin|code)|pass\s*code|password|cheat\s*code|unlock\s*code|admin\s*(pass|code|pin)|secret\s*code|main\s*hippo)\b/i;
-
-function helpWelcome() {
-  return {
-    role: "bot",
-    html: `Hi — I’m the SkyTycoon help desk. Ask me about fuel, hubs, charters, leasing, storms… or tap a topic below.<br><span class="muted mini">I only know this game’s rules — nothing outside SkyTycoon.</span>`,
-  };
-}
-
-function ensureHelpChat() {
-  if (!Array.isArray(UI.helpChat) || !UI.helpChat.length) UI.helpChat = [helpWelcome()];
-  return UI.helpChat;
-}
 
 function scrubHelpLeak(html) {
   let out = String(html || "");
@@ -4191,115 +4210,254 @@ function scrubHelpLeak(html) {
   return out;
 }
 
-function helpBotReply(raw) {
-  const q = String(raw || "").trim();
-  if (!q) return "Ask me anything about how SkyTycoon works.";
+function helpPlain(html) {
+  return String(html || "")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+    .replace(/&nbsp;/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
 
-  // Never reveal developer access — refuse before any FAQ matching.
-  if (HELP_DEV_ASK.test(q) ||
-      (typeof DEV_PASSCODE === "string" && DEV_PASSCODE &&
-       q.toLowerCase().includes(DEV_PASSCODE.toLowerCase()))) {
-    return "I can’t share developer access codes or unlock cheats. The 🛠 button is for the game author — you don’t need it for normal play. Ask me about routes, fuel, charters, or any other game feature instead!";
+function helpFormatAnswer(text) {
+  const plain = scrubHelpLeak(String(text || "").trim());
+  if (!plain) return "I’m not sure — try opening a topic tip below.";
+  return esc(plain).replace(/\n+/g, "<br>");
+}
+
+/** Full guide text fed to the local model (never includes secrets). */
+function helpGuideCorpus() {
+  const bits = HELP_FAQ.map(item =>
+    `TOPIC: ${item.q}\n${helpPlain(item.a)}`
+  );
+  if (G.state) {
+    const s = G.state;
+    bits.push(
+      `LIVE AIRLINE SNAPSHOT (for context only):\n` +
+      `Cash ${fmtMoney(s.cash)}, fuel ${fmtNum(s.fuel / 1000)} t, CO₂ ${fmtNum(s.co2 / 1000)} t, ` +
+      `training points ${s.trainPts || 0}, reputation ${Math.round(s.reputation || 0)}, ` +
+      `fleet ${s.planes.length}, hubs ${(s.hubs || []).join("/")}.`
+    );
   }
+  return bits.join("\n\n");
+}
 
-  const tokens = q.toLowerCase()
+function helpRankTopics(raw, limit = 3) {
+  const rawLow = String(raw || "").toLowerCase();
+  const tokens = rawLow
     .replace(/[^a-z0-9\s+-]/g, " ")
     .split(/\s+/)
     .filter(t => t.length > 1 && !HELP_STOP.has(t));
+  if (!tokens.length) return [];
 
-  if (!tokens.length) {
-    return "Try a topic like <b>fuel</b>, <b>charters</b>, <b>hubs</b>, or <b>leasing</b> — or tap a suggestion below.";
-  }
-
-  let best = null, bestScore = 0;
-  for (const item of HELP_FAQ) {
+  const scored = HELP_FAQ.map(item => {
     const qLow = item.q.toLowerCase();
-    const aLow = item.a.replace(/<[^>]+>/g, " ").toLowerCase();
+    const aLow = helpPlain(item.a).toLowerCase();
     const keySet = new Set((item.keys || []).map(k => k.toLowerCase()));
     let score = 0;
+    for (const phrase of item.phrases || []) {
+      if (rawLow.includes(phrase.toLowerCase())) score += 12;
+    }
     for (const t of tokens) {
-      if (keySet.has(t)) score += 5;
-      else if (qLow.includes(t)) score += 3;
-      else if (aLow.includes(t)) score += 1;
-      // soft prefix (e.g. "airport" ↔ "airports")
+      const tfA = (aLow.split(t).length - 1);
+      const tfQ = (qLow.split(t).length - 1);
+      if (keySet.has(t)) score += 6;
+      score += tfQ * 4 + Math.min(3, tfA) * 2;
       for (const k of keySet) {
-        if (k.startsWith(t) || t.startsWith(k)) { score += 2; break; }
+        if (k.length > 2 && (k.startsWith(t) || t.startsWith(k))) { score += 2; break; }
       }
     }
-    if (score > bestScore) { bestScore = score; best = item; }
+    return { item, score };
+  }).filter(x => x.score > 0)
+    .sort((a, b) => b.score - a.score);
+  return scored.slice(0, limit);
+}
+
+/** Offline fallback: retrieve relevant guide chunks (not a fixed Q→A map). */
+function helpRetrieveAnswer(raw) {
+  const hits = helpRankTopics(raw, 3);
+  if (!hits.length || hits[0].score < 4) {
+    return {
+      html: "I’m not sure from the guide. Open a tip below, or ask about training points, chefs, fuel, hubs, or charters.",
+      topicId: null,
+      source: "search",
+    };
+  }
+  const top = hits.filter((h, i) => i === 0 || h.score >= hits[0].score * 0.55).slice(0, 2);
+  const html = top.map(h => `<b>${esc(h.item.q)}</b><br>${h.item.a}`).join("<br><br>");
+  return { html: scrubHelpLeak(html), topicId: hits[0].item.id, source: "search" };
+}
+
+function helpRefuse(raw) {
+  return HELP_DEV_ASK.test(raw) ||
+    (typeof DEV_PASSCODE === "string" && DEV_PASSCODE &&
+      String(raw).toLowerCase().includes(DEV_PASSCODE.toLowerCase()));
+}
+
+function helpSetStatus(text) {
+  UI.helpStatus = text || "";
+  const el = document.getElementById("help-ai-status");
+  if (el) el.textContent = UI.helpStatus;
+}
+
+function helpWarmAI() {
+  if (typeof HelpAI === "undefined") return;
+  if (HelpAI.status === "ready" || HelpAI.status === "loading") return;
+  if (!HelpAI.supported()) {
+    helpSetStatus("Guide search · WebGPU not available for local AI");
+    return;
+  }
+  HelpAI.ensure((msg) => helpSetStatus(msg)).then((engine) => {
+    if (engine) helpSetStatus("Local AI ready · answers run on your device");
+    else helpSetStatus(HelpAI.progress || "Guide search ready");
+  });
+}
+
+async function helpAnswerSmart(raw) {
+  if (helpRefuse(raw)) {
+    return {
+      html: "Developer access codes aren’t part of the guide. The 🛠 button is for the game author — ask about routes, fuel, training points, chefs, or any other game feature instead.",
+      topicId: null,
+      source: "refuse",
+    };
   }
 
-  if (!best || bestScore < 3) {
-    const samples = HELP_FAQ.filter(x => x.id !== "controls")
-      .slice(0, 4).map(x => x.q.replace(/\?$/, "")).join("; ");
-    return `I’m not sure about that. I can help with things like: ${esc(samples)}… Try rephrasing, or tap a topic chip.`;
+  // Prefer local model when available; retrieve top topics as grounding context.
+  if (typeof HelpAI !== "undefined") {
+    const ranked = helpRankTopics(raw, 4);
+    const focus = ranked.length
+      ? ranked.map(h => `TOPIC: ${h.item.q}\n${helpPlain(h.item.a)}`).join("\n\n")
+      : helpGuideCorpus();
+    const guide = focus + "\n\n---\nFULL GUIDE INDEX:\n" +
+      HELP_FAQ.map(x => `- ${x.q}`).join("\n");
+
+    helpSetStatus(HelpAI.status === "ready" ? "Thinking…" : (HelpAI.progress || "Loading local model…"));
+    try {
+      const text = await HelpAI.ask(raw, guide);
+      if (text) {
+        helpSetStatus("Local AI · on-device");
+        return {
+          html: helpFormatAnswer(text),
+          topicId: ranked[0] ? ranked[0].item.id : null,
+          source: "ai",
+        };
+      }
+    } catch (err) {
+      console.warn("HelpAI ask failed:", err);
+      helpSetStatus("Local AI failed — guide search");
+    }
   }
-  return scrubHelpLeak(`<b>${best.q}</b><br><br>${best.a}`);
+
+  const fb = helpRetrieveAnswer(raw);
+  helpSetStatus(fb.source === "search" ? "Guide search" : "");
+  return fb;
 }
 
 function renderHelp() {
-  const chat = ensureHelpChat();
-  const chips = HELP_FAQ.map(item =>
-    `<button type="button" class="chip help-chip" onclick="uiHelpChip('${item.id}')">${esc(item.q.replace(/\?$/, ""))}</button>`
-  ).join("");
-  const msgs = chat.map(m => {
-    if (m.role === "user") {
-      return `<div class="help-msg help-msg-user"><div class="help-bubble">${esc(m.text)}</div></div>`;
-    }
-    return `<div class="help-msg help-msg-bot"><div class="help-bubble">${scrubHelpLeak(m.html)}</div></div>`;
+  const openId = UI.helpQ || null;
+  const asked = UI.helpAsked || null;
+  const ans = UI.helpAnswer || null;
+  const busy = !!UI.helpBusy;
+  const status = UI.helpStatus || (
+    typeof HelpAI !== "undefined" && HelpAI.supported()
+      ? (HelpAI.status === "ready" ? "Local AI ready · on-device" : "Local AI can load on first question")
+      : "Guide search · WebGPU not available for local AI"
+  );
+
+  // Kick off model download when the panel is open (idle time).
+  if (!busy) setTimeout(helpWarmAI, 0);
+
+  const askForm = `
+    <form class="help-ask" onsubmit="return uiHelpAsk(event)">
+      <input id="help-chat-q" type="search" maxlength="240"
+        placeholder="Ask anything about SkyTycoon…"
+        value="${esc(UI.helpDraft || "")}"
+        oninput="UI.helpDraft=this.value" autocomplete="off" aria-label="Ask help"
+        ${busy ? "disabled" : ""}>
+      <button type="submit" class="btn btn-gold" ${busy ? "disabled" : ""}>${busy ? "…" : "Ask"}</button>
+    </form>
+    <div class="muted mini help-ai-status" id="help-ai-status">${esc(status)}</div>`;
+
+  let answerBlurb = "";
+  if (asked && ans) {
+    answerBlurb = `<details class="panel-tip help-answer" open>
+      <summary>${esc(asked)}${UI.helpSource === "ai" ? ` <span class="muted mini">· local AI</span>` : ""}</summary>
+      <div class="tip-body">${scrubHelpLeak(ans)}</div>
+    </details>`;
+  } else {
+    answerBlurb = tip(
+      `Ask in plain English — a small <b>local model</b> answers on your device when WebGPU is available (first load downloads the model). Otherwise the guide search retrieves the best tips. Browse topics below anytime.`,
+      "How help works"
+    );
+  }
+
+  const topics = HELP_FAQ.map(item => {
+    const isOpen = openId === item.id;
+    return `<details class="panel-tip help-topic" ${isOpen ? "open" : ""} data-help-id="${item.id}">
+      <summary onclick="event.preventDefault();uiHelpToggle('${item.id}')">${esc(item.q)}</summary>
+      ${isOpen ? `<div class="tip-body">${item.a}</div>` : ""}
+    </details>`;
   }).join("");
+
   return `
-    <div class="help-chat">
-      <div class="muted mini panel-note">Ask in plain English — answers come from the in-game guide.</div>
-      <div class="help-chat-log" id="help-chat-log">${msgs}</div>
-      <div class="help-chips">${chips}</div>
-      <form class="help-chat-form" onsubmit="return uiHelpAsk(event)">
-        <input id="help-chat-q" type="text" maxlength="240" placeholder="Ask about fuel, hubs, charters…"
-          autocomplete="off" aria-label="Ask help">
-        <button type="submit" class="btn btn-gold">Ask</button>
-      </form>
-      <div class="card-actions" style="margin-top:8px">
-        <button type="button" class="btn mini-btn" onclick="uiHelpClear()">Clear chat</button>
-      </div>
+    <div class="help-guide">
+      <div class="muted mini panel-note">On-device help desk — tip blurbs match the rest of the UI.</div>
+      ${askForm}
+      ${answerBlurb}
+      <h3 class="cat-head">Topics</h3>
+      ${topics}
     </div>`;
 }
 
 function uiHelpAsk(e) {
   if (e && e.preventDefault) e.preventDefault();
+  if (UI.helpBusy) return false;
   const inp = document.getElementById("help-chat-q");
-  const q = (inp && inp.value || "").trim();
+  const q = (inp && inp.value || UI.helpDraft || "").trim();
   if (!q) return false;
-  const chat = ensureHelpChat();
-  chat.push({ role: "user", text: q });
-  chat.push({ role: "bot", html: helpBotReply(q) });
-  while (chat.length > 48) chat.shift();
-  if (inp) inp.value = "";
+
+  UI.helpAsked = q;
+  UI.helpDraft = "";
+  UI.helpBusy = true;
+  UI.helpAnswer = `<span class="muted">Thinking…</span>`;
+  UI.helpSource = null;
+  UI.helpQ = null;
   refreshPanel(true);
-  requestAnimationFrame(() => {
-    const log = document.getElementById("help-chat-log");
-    if (log) log.scrollTop = log.scrollHeight;
-    const n = document.getElementById("help-chat-q");
-    if (n) n.focus();
+
+  helpAnswerSmart(q).then((res) => {
+    UI.helpBusy = false;
+    UI.helpAnswer = res.html;
+    UI.helpSource = res.source;
+    UI.helpQ = res.topicId || null;
+    if (UI.panel === "help") refreshPanel(true);
+    requestAnimationFrame(() => {
+      const n = document.getElementById("help-chat-q");
+      if (n) n.focus();
+    });
+  }).catch((err) => {
+    console.warn(err);
+    UI.helpBusy = false;
+    const fb = helpRetrieveAnswer(q);
+    UI.helpAnswer = fb.html;
+    UI.helpSource = fb.source;
+    UI.helpQ = fb.topicId;
+    if (UI.panel === "help") refreshPanel(true);
   });
   return false;
 }
 
-function uiHelpChip(id) {
-  const item = HELP_FAQ.find(x => x.id === id);
-  if (!item) return;
-  const chat = ensureHelpChat();
-  chat.push({ role: "user", text: item.q });
-  chat.push({ role: "bot", html: scrubHelpLeak(`<b>${item.q}</b><br><br>${item.a}`) });
-  while (chat.length > 48) chat.shift();
-  refreshPanel(true);
-  requestAnimationFrame(() => {
-    const log = document.getElementById("help-chat-log");
-    if (log) log.scrollTop = log.scrollHeight;
-  });
-}
-
-function uiHelpClear() {
-  UI.helpChat = [helpWelcome()];
+function uiHelpToggle(id) {
+  UI.helpQ = UI.helpQ === id ? null : id;
+  if (UI.helpQ) {
+    const item = HELP_FAQ.find(x => x.id === id);
+    if (item) {
+      UI.helpAsked = item.q;
+      UI.helpAnswer = item.a;
+      UI.helpSource = "topic";
+    }
+  }
   refreshPanel(true);
 }
 
@@ -4531,7 +4689,7 @@ const TUTORIAL = [
   {
     id: "help",
     title: "Help desk",
-    body: `Stuck later? Open <b>Help</b> and ask the in-game chatbot, or tap a topic chip. It knows SkyTycoon’s rules — fuel, charters, leasing, schools — and won’t hand out cheat codes.`,
+    body: `Stuck later? Open <b>Help</b> — ask in plain English (a small local AI answers on-device when WebGPU is available) or browse tip blurbs. It won’t hand out cheat codes.`,
     panel: "help",
     highlight: "help",
   },
