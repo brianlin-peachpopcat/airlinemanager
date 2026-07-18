@@ -77,6 +77,7 @@ const PANELS = {
   fuel:      { title: "Fuel & CO₂ Quotas", icon: "⛽" },
   marketing: { title: "Finance & Marketing", icon: "📣" },
   events:    { title: "World Events",      icon: "📰" },
+  logs:      { title: "History Log",       icon: "📜" },
   company:   { title: "Company",           icon: "🏢" },
   help:      { title: "Help",              icon: "❓" },
 };
@@ -348,13 +349,26 @@ function refreshPanel(force) {
   }
   // Marketing / company / help are mostly static; skip tick rebuilds.
   if (!force && (UI.panel === "marketing" || UI.panel === "company" || UI.panel === "help")) return;
+  // History log: refresh on ticks so new events appear, but not while typing a filter
+  if (!force && UI.panel === "logs") {
+    if (body.contains(document.activeElement) &&
+        /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) return;
+  }
 
   const scroll = body.scrollTop;
-  const renderers = { fleet: renderFleet, buy: renderBuy, maint: renderMaint, fuel: renderFuel, marketing: renderMarketing, events: renderEvents, company: renderCompany, help: renderHelp };
+  const renderers = {
+    fleet: renderFleet, buy: renderBuy, maint: renderMaint, fuel: renderFuel,
+    marketing: renderMarketing, events: renderEvents, logs: renderLogs,
+    company: renderCompany, help: renderHelp,
+  };
   body.innerHTML = renderers[UI.panel]();
   body.scrollTop = scroll;
   if (UI.panel === "buy") UI._buyOrderCount = (G.state.orders || []).length;
   if (UI.panel === "fuel") drawSparklines();
+  if (UI.panel === "help") {
+    const log = document.getElementById("help-chat-log");
+    if (log) log.scrollTop = log.scrollHeight;
+  }
 }
 
 // ---------------- fleet ----------------
@@ -2593,6 +2607,20 @@ function renderCompanyOverview() {
     `<option value="${id}">${f.label}${f.cats ? ` (${f.cats.join(", ")})` : ""}</option>`
   ).join("");
   const canFound = s.brands.filter(b => !b.parent).length < MAX_CHILD_BRANDS;
+  const cloud = (typeof Persist !== "undefined" && Persist.cloudStatus) || "unknown";
+  const saveCard = `<div class="card">
+    <div class="card-head"><div><b>💾 Save & sync</b></div>
+      <span class="muted mini">${cloud === "ok" ? "cloud on" : cloud === "off" ? "local only" : "…"}</span></div>
+    <div class="card-row muted mini">Your airline autosaves in this browser (localStorage + IndexedDB) so reopening keeps progress.
+      ${cloud === "ok"
+        ? "Cloud sync is on — the same network IP can restore this save on Vercel."
+        : "Add Vercel KV (KV_REST_API_URL / TOKEN) to enable IP cloud backups."}
+      Full event history lives under <b>History Log</b>.</div>
+    <div class="card-actions">
+      <button class="btn" onclick="save();if(typeof flushCloudSave==='function')flushCloudSave();toast('Saved.');">Save now</button>
+      <button class="btn" onclick="openPanel('logs')">Open History Log →</button>
+    </div>
+  </div>`;
   const brandsCard = `<div class="card">
     <div class="card-head"><div><b>✈ Subsidiaries</b></div>
       <div class="muted mini">${fmtMoney(BRAND_FOUND_COST)} + ${BRAND_FOUND_PTS} ⭐ to found</div></div>
@@ -2616,6 +2644,7 @@ function renderCompanyOverview() {
     </div>` : `<div class="muted mini">Maximum of ${MAX_CHILD_BRANDS} subsidiaries reached.</div>`}
   </div>`;
   return `
+    ${saveCard}
     <div class="company-name-row">
       <input id="airline-name" value="${esc(s.airline)}" maxlength="28">
       <button class="btn" onclick="uiRename()">Rename</button>
@@ -4315,16 +4344,47 @@ function helpWarmAI() {
   });
 }
 
+function helpChatMessages() {
+  if (!Array.isArray(UI.helpChat)) {
+    UI.helpChat = (G.state && Array.isArray(G.state.helpChat) && G.state.helpChat.length)
+      ? G.state.helpChat.slice()
+      : [{
+        role: "assistant",
+        text: "Hi — I’m your SkyTycoon help desk. Ask about fuel, routes, training points, chefs, charters… I’ll remember this chat for a bit.",
+        html: "Hi — I’m your SkyTycoon help desk. Ask about fuel, routes, training points, chefs, charters… I’ll remember this chat for a bit.",
+      }];
+  }
+  return UI.helpChat;
+}
+
+function helpPersistChat() {
+  const msgs = helpChatMessages();
+  // Cap short-term memory stored in the save
+  while (msgs.length > 40) msgs.shift();
+  if (G.state) G.state.helpChat = msgs.map(m => ({
+    role: m.role,
+    text: m.text || helpPlain(m.html || ""),
+    html: m.html || esc(m.text || ""),
+  }));
+}
+
 async function helpAnswerSmart(raw) {
   if (helpRefuse(raw)) {
     return {
       html: "Developer access codes aren’t part of the guide. The 🛠 button is for the game author — ask about routes, fuel, training points, chefs, or any other game feature instead.",
+      text: "Developer access codes aren’t part of the guide.",
       topicId: null,
       source: "refuse",
     };
   }
 
-  // Prefer local model when available; retrieve top topics as grounding context.
+  const memory = helpChatMessages()
+    .filter(m => m.role === "user" || m.role === "assistant")
+    .map(m => ({ role: m.role === "user" ? "user" : "assistant", text: m.text || helpPlain(m.html || "") }));
+  // Exclude the user message we just pushed (last one) from memory for the model —
+  // HelpAI.ask adds the current question separately.
+  if (memory.length && memory[memory.length - 1].role === "user") memory.pop();
+
   if (typeof HelpAI !== "undefined") {
     const ranked = helpRankTopics(raw, 4);
     const focus = ranked.length
@@ -4335,11 +4395,12 @@ async function helpAnswerSmart(raw) {
 
     helpSetStatus(HelpAI.status === "ready" ? "Thinking…" : (HelpAI.progress || "Loading local model…"));
     try {
-      const text = await HelpAI.ask(raw, guide);
+      const text = await HelpAI.ask(raw, guide, memory);
       if (text) {
-        helpSetStatus("Local AI · on-device");
+        helpSetStatus("Local AI · on-device · short-term memory on");
         return {
           html: helpFormatAnswer(text),
+          text,
           topicId: ranked[0] ? ranked[0].item.id : null,
           source: "ai",
         };
@@ -4352,62 +4413,59 @@ async function helpAnswerSmart(raw) {
 
   const fb = helpRetrieveAnswer(raw);
   helpSetStatus(fb.source === "search" ? "Guide search" : "");
-  return fb;
+  return {
+    html: fb.html,
+    text: helpPlain(fb.html),
+    topicId: fb.topicId,
+    source: fb.source,
+  };
 }
 
 function renderHelp() {
-  const openId = UI.helpQ || null;
-  const asked = UI.helpAsked || null;
-  const ans = UI.helpAnswer || null;
+  const msgs = helpChatMessages();
   const busy = !!UI.helpBusy;
   const status = UI.helpStatus || (
     typeof HelpAI !== "undefined" && HelpAI.supported()
-      ? (HelpAI.status === "ready" ? "Local AI ready · on-device" : "Local AI can load on first question")
+      ? (HelpAI.status === "ready" ? "Local AI ready · remembers this chat" : "Local AI loads on first question")
       : "Guide search · WebGPU not available for local AI"
   );
-
-  // Kick off model download when the panel is open (idle time).
   if (!busy) setTimeout(helpWarmAI, 0);
 
-  const askForm = `
-    <form class="help-ask" onsubmit="return uiHelpAsk(event)">
-      <input id="help-chat-q" type="search" maxlength="240"
-        placeholder="Ask anything about SkyTycoon…"
-        value="${esc(UI.helpDraft || "")}"
-        oninput="UI.helpDraft=this.value" autocomplete="off" aria-label="Ask help"
-        ${busy ? "disabled" : ""}>
-      <button type="submit" class="btn btn-gold" ${busy ? "disabled" : ""}>${busy ? "…" : "Ask"}</button>
-    </form>
-    <div class="muted mini help-ai-status" id="help-ai-status">${esc(status)}</div>`;
-
-  let answerBlurb = "";
-  if (asked && ans) {
-    answerBlurb = `<details class="panel-tip help-answer" open>
-      <summary>${esc(asked)}${UI.helpSource === "ai" ? ` <span class="muted mini">· local AI</span>` : ""}</summary>
-      <div class="tip-body">${scrubHelpLeak(ans)}</div>
-    </details>`;
-  } else {
-    answerBlurb = tip(
-      `Ask in plain English — a small <b>local model</b> answers on your device when WebGPU is available (first load downloads the model). Otherwise the guide search retrieves the best tips. Browse topics below anytime.`,
-      "How help works"
-    );
-  }
-
-  const topics = HELP_FAQ.map(item => {
-    const isOpen = openId === item.id;
-    return `<details class="panel-tip help-topic" ${isOpen ? "open" : ""} data-help-id="${item.id}">
-      <summary onclick="event.preventDefault();uiHelpToggle('${item.id}')">${esc(item.q)}</summary>
-      ${isOpen ? `<div class="tip-body">${item.a}</div>` : ""}
-    </details>`;
+  const bubbles = msgs.map(m => {
+    const who = m.role === "user" ? "user" : "assistant";
+    const body = m.role === "user" ? esc(m.text || "") : scrubHelpLeak(m.html || esc(m.text || ""));
+    return `<div class="gpt-row gpt-${who}">
+      <div class="gpt-avatar">${who === "user" ? "You" : "ST"}</div>
+      <div class="gpt-bubble">${body}</div>
+    </div>`;
   }).join("");
 
+  const chips = HELP_FAQ.slice(0, 8).map(item =>
+    `<button type="button" class="chip help-chip" onclick="uiHelpChip('${item.id}')">${esc(item.q.replace(/\?$/, ""))}</button>`
+  ).join("");
+
   return `
-    <div class="help-guide">
-      <div class="muted mini panel-note">On-device help desk — tip blurbs match the rest of the UI.</div>
-      ${askForm}
-      ${answerBlurb}
-      <h3 class="cat-head">Topics</h3>
-      ${topics}
+    <div class="gpt-shell">
+      <div class="gpt-toolbar">
+        <span class="muted mini" id="help-ai-status">${esc(status)}</span>
+        <button type="button" class="btn mini-btn" onclick="uiHelpClear()">New chat</button>
+      </div>
+      <div class="gpt-log" id="help-chat-log">${bubbles || `<div class="muted mini gpt-empty">Ask anything about SkyTycoon…</div>`}</div>
+      <div class="gpt-suggestions">${chips}</div>
+      <form class="gpt-composer" onsubmit="return uiHelpAsk(event)">
+        <textarea id="help-chat-q" rows="1" maxlength="400"
+          placeholder="Message SkyTycoon Help…"
+          oninput="UI.helpDraft=this.value;this.style.height='auto';this.style.height=Math.min(120,this.scrollHeight)+'px'"
+          onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();uiHelpAsk(event);}"
+          ${busy ? "disabled" : ""}>${esc(UI.helpDraft || "")}</textarea>
+        <button type="submit" class="btn btn-gold gpt-send" ${busy ? "disabled" : ""}>${busy ? "…" : "Send"}</button>
+      </form>
+      <details class="panel-tip" style="margin-top:10px">
+        <summary>Browse all topics</summary>
+        <div class="tip-body help-topic-list">${HELP_FAQ.map(item =>
+          `<button type="button" class="help-topic-link" onclick="uiHelpChip('${item.id}')">${esc(item.q)}</button>`
+        ).join("")}</div>
+      </details>
     </div>`;
 }
 
@@ -4418,47 +4476,126 @@ function uiHelpAsk(e) {
   const q = (inp && inp.value || UI.helpDraft || "").trim();
   if (!q) return false;
 
-  UI.helpAsked = q;
+  const msgs = helpChatMessages();
+  msgs.push({ role: "user", text: q, html: esc(q) });
+  msgs.push({ role: "assistant", text: "…", html: `<span class="muted">Thinking…</span>`, pending: true });
   UI.helpDraft = "";
   UI.helpBusy = true;
-  UI.helpAnswer = `<span class="muted">Thinking…</span>`;
-  UI.helpSource = null;
-  UI.helpQ = null;
+  helpPersistChat();
   refreshPanel(true);
 
   helpAnswerSmart(q).then((res) => {
     UI.helpBusy = false;
-    UI.helpAnswer = res.html;
-    UI.helpSource = res.source;
-    UI.helpQ = res.topicId || null;
+    const list = helpChatMessages();
+    const last = list[list.length - 1];
+    if (last && last.pending) {
+      last.pending = false;
+      last.html = scrubHelpLeak(res.html);
+      last.text = res.text || helpPlain(res.html);
+    } else {
+      list.push({ role: "assistant", text: res.text || helpPlain(res.html), html: scrubHelpLeak(res.html) });
+    }
+    helpPersistChat();
+    save();
     if (UI.panel === "help") refreshPanel(true);
-    requestAnimationFrame(() => {
-      const n = document.getElementById("help-chat-q");
-      if (n) n.focus();
-    });
   }).catch((err) => {
     console.warn(err);
     UI.helpBusy = false;
     const fb = helpRetrieveAnswer(q);
-    UI.helpAnswer = fb.html;
-    UI.helpSource = fb.source;
-    UI.helpQ = fb.topicId;
+    const list = helpChatMessages();
+    const last = list[list.length - 1];
+    if (last && last.pending) {
+      last.pending = false;
+      last.html = scrubHelpLeak(fb.html);
+      last.text = helpPlain(fb.html);
+    }
+    helpPersistChat();
     if (UI.panel === "help") refreshPanel(true);
   });
   return false;
 }
 
-function uiHelpToggle(id) {
-  UI.helpQ = UI.helpQ === id ? null : id;
-  if (UI.helpQ) {
-    const item = HELP_FAQ.find(x => x.id === id);
-    if (item) {
-      UI.helpAsked = item.q;
-      UI.helpAnswer = item.a;
-      UI.helpSource = "topic";
-    }
-  }
+function uiHelpChip(id) {
+  const item = HELP_FAQ.find(x => x.id === id);
+  if (!item || UI.helpBusy) return;
+  const msgs = helpChatMessages();
+  msgs.push({ role: "user", text: item.q, html: esc(item.q) });
+  msgs.push({
+    role: "assistant",
+    text: helpPlain(item.a),
+    html: scrubHelpLeak(`<b>${esc(item.q)}</b><br><br>${item.a}`),
+  });
+  helpPersistChat();
+  save();
   refreshPanel(true);
+}
+
+function uiHelpClear() {
+  UI.helpChat = [{
+    role: "assistant",
+    text: "New chat — what do you want to know about SkyTycoon?",
+    html: "New chat — what do you want to know about SkyTycoon?",
+  }];
+  if (G.state) G.state.helpChat = UI.helpChat.slice();
+  UI.helpBusy = false;
+  refreshPanel(true);
+  save();
+}
+
+// ---------------- airline history log ----------------
+
+function renderLogs() {
+  const s = G.state;
+  const filter = UI.logFilter || "all";
+  const q = (UI.logSearch || "").trim().toLowerCase();
+  const all = Array.isArray(s.log) ? s.log : [];
+  let rows = all;
+  if (filter !== "all") rows = rows.filter(e => (e.kind || "info") === filter);
+  if (q) rows = rows.filter(e => (e.msg || "").toLowerCase().includes(q));
+
+  const chips = ["all", "good", "bad", "money", "info"].map(k =>
+    `<button type="button" class="chip ${filter === k ? "active" : ""}" onclick="uiLogFilter('${k}')">${k === "all" ? "All" : k}</button>`
+  ).join("");
+
+  const cloud = (typeof Persist !== "undefined" && Persist.cloudStatus) || "unknown";
+  const cloudNote = cloud === "ok" ? "Cloud sync on (IP save)"
+    : cloud === "off" ? "Local + IndexedDB (cloud KV not configured)"
+    : "Checking save sync…";
+
+  const list = rows.length
+    ? rows.map(e => {
+      const kind = e.kind || "info";
+      return `<div class="log-row log-${kind}">
+        <span class="log-time">${esc(fmtClock(e.t))}</span>
+        <span class="log-kind">${kind}</span>
+        <span class="log-msg">${esc(e.msg)}</span>
+      </div>`;
+    }).join("")
+    : `<div class="empty">No log entries${q || filter !== "all" ? " match this filter" : " yet"}.</div>`;
+
+  return `
+    <div class="muted mini panel-note">Full airline history — purchases, flights, storms, training, charters, and more. Kept in your save (${fmtNum(all.length)} entries, up to ${fmtNum(LOG_MAX)}).</div>
+    <div class="card">
+      <div class="card-row muted mini">Progress autosaves to this browser (and IndexedDB). ${esc(cloudNote)}.</div>
+    </div>
+    <div class="brand-filter">${chips}</div>
+    <div class="help-ask" style="margin-bottom:10px">
+      <input type="search" placeholder="Search history…" value="${esc(UI.logSearch || "")}"
+        oninput="uiLogSearch(this.value)" autocomplete="off">
+    </div>
+    <div class="log-feed">${list}</div>`;
+}
+
+function uiLogFilter(k) {
+  UI.logFilter = k;
+  refreshPanel(true);
+}
+
+function uiLogSearch(v) {
+  UI.logSearch = v;
+  refreshPanel(true);
+  const inp = document.querySelector("#panel-body input[type=search]");
+  if (inp) { inp.focus(); const n = inp.value.length; inp.setSelectionRange(n, n); }
 }
 
 // ---------------- world events panel ----------------
@@ -4689,7 +4826,7 @@ const TUTORIAL = [
   {
     id: "help",
     title: "Help desk",
-    body: `Stuck later? Open <b>Help</b> — ask in plain English (a small local AI answers on-device when WebGPU is available) or browse tip blurbs. It won’t hand out cheat codes.`,
+    body: `Stuck later? Open <b>Help</b> for a ChatGPT-style desk (short-term memory on) or <b>History Log</b> for the full airline diary. Progress autosaves so reopening keeps your game.`,
     panel: "help",
     highlight: "help",
   },

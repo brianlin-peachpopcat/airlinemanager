@@ -3100,6 +3100,7 @@ function newGame(airlineName, hubCode, timeScale, starter, difficulty) {
     totPax: 0,                  // lifetime passengers boarded
     totCargo: 0,                // lifetime freight tonnes boarded
     log: [],
+    helpChat: [],               // short-term help desk memory (also in UI)
   };
   G.state.customTypes = [];
   G.state.nextLaunch = G.state.gameMin + (180 + Math.round(Math.random() * 180)) * 1440;
@@ -3121,23 +3122,58 @@ function newGame(airlineName, hubCode, timeScale, starter, difficulty) {
   save();
 }
 
+const LOG_MAX = 2000;           // airline history kept in the save
+const LOG_SOFT_TRIM = 1200;     // trim target when storage is tight
+
 function save() {
   if (!G.state) return;
   G.state.lastSeen = Date.now();
-  const write = () => localStorage.setItem("skytycoon", JSON.stringify(G.state));
+  // Prefer the durable Persist helper (localStorage + IndexedDB + cloud).
+  if (typeof Persist !== "undefined" && Persist.writeLocal) {
+    if (!Persist.writeLocal(G.state)) {
+      for (const p of (G.state.planes || [])) {
+        if (p.hist && p.hist.length > 40) p.hist.length = 40;
+      }
+      if (Array.isArray(G.state.log) && G.state.log.length > LOG_SOFT_TRIM) {
+        G.state.log.length = LOG_SOFT_TRIM;
+      }
+      if (Array.isArray(G.state.reportQ) && G.state.reportQ.length > 8) {
+        G.state.reportQ = G.state.reportQ.slice(-8);
+      }
+      Persist.writeLocal(G.state);
+    }
+    Persist.idbSet(G.state).catch(() => {});
+    // Throttle cloud uploads (every ~45s or on unload via flushCloud)
+    const now = Date.now();
+    if (!G._lastCloudSave || now - G._lastCloudSave > 45000) {
+      G._lastCloudSave = now;
+      Persist.cloudSave(G.state).catch(() => {});
+    }
+    return;
+  }
   try {
-    write();
+    localStorage.setItem("skytycoon", JSON.stringify(G.state));
   } catch (e) {
-    // Mobile Safari ~5MB quota — trim logbooks once and retry so progress isn't lost.
     for (const p of (G.state.planes || [])) {
       if (p.hist && p.hist.length > 60) p.hist.length = 60;
     }
     if (Array.isArray(G.state.log) && G.state.log.length > 100) G.state.log.length = 100;
-    if (Array.isArray(G.state.reportQ) && G.state.reportQ.length > 8) {
-      G.state.reportQ = G.state.reportQ.slice(-8);
-    }
-    try { write(); } catch (_) {}
+    try { localStorage.setItem("skytycoon", JSON.stringify(G.state)); } catch (_) {}
   }
+}
+
+function flushCloudSave() {
+  if (!G.state || typeof Persist === "undefined") return;
+  G._lastCloudSave = Date.now();
+  Persist.cloudSave(G.state).catch(() => {});
+}
+
+/** Apply a raw save object into G.state (migrations run in migrateState). */
+function applySave(raw) {
+  if (!raw || typeof raw !== "object") return false;
+  G.state = raw;
+  migrateState();
+  return true;
 }
 
 // Legacy save remaps (keys encoded so old trademarks are not plaintext).
@@ -3285,11 +3321,8 @@ const RENAMED_CARRIERS = (() => {
 })();
 
 
-function load() {
-  try {
-    const raw = localStorage.getItem("skytycoon");
-    if (!raw) return false;
-    G.state = JSON.parse(raw);
+function migrateState() {
+  if (!G.state) return;
     // migrate older saves
     if (G.state.lounges == null) G.state.lounges = 0;
     if (G.state.alliance === undefined) G.state.alliance = null;
@@ -3447,19 +3480,55 @@ function load() {
         seen.add(p.id);
       }
     }
-    // simulate offline time (capped) — but a paused game stays frozen
-    if (G.state.paused) return true;
-    const away = Math.floor((Date.now() - (G.state.lastSeen || Date.now())) / 1000
-      * (G.state.timeScale || SPEEDS.classic) / 60);
-    const mins = Math.min(OFFLINE_CAP_MIN, Math.max(0, away));
-    if (mins > 5) {
-      const cashBefore = G.state.cash;
-      for (let i = 0; i < mins; i++) tick(true);
-      const earned = G.state.cash - cashBefore;
-      if (earned > 0) log(`While you were away: ${fmtMoney(earned)} earned over ${Math.round(mins / 60)}h of operations.`, "good");
-    }
+    if (!Array.isArray(G.state.log)) G.state.log = [];
+    if (!Array.isArray(G.state.helpChat)) G.state.helpChat = [];
+}
+
+/** Run offline catch-up after a save is applied. */
+function runOfflineCatchup() {
+  if (!G.state || G.state.paused) return;
+  const away = Math.floor((Date.now() - (G.state.lastSeen || Date.now())) / 1000
+    * (G.state.timeScale || SPEEDS.classic) / 60);
+  const mins = Math.min(OFFLINE_CAP_MIN, Math.max(0, away));
+  if (mins > 5) {
+    const cashBefore = G.state.cash;
+    for (let i = 0; i < mins; i++) tick(true);
+    const earned = G.state.cash - cashBefore;
+    if (earned > 0) log(`While you were away: ${fmtMoney(earned)} earned over ${Math.round(mins / 60)}h of operations.`, "good");
+  }
+}
+
+/** Sync load from localStorage (fast path). */
+function load() {
+  try {
+    const raw = (typeof Persist !== "undefined" && Persist.readLocal)
+      ? Persist.readLocal()
+      : JSON.parse(localStorage.getItem("skytycoon") || "null");
+    if (!raw) return false;
+    if (!applySave(raw)) return false;
+    runOfflineCatchup();
     return true;
   } catch (e) { return false; }
+}
+
+/**
+ * Resolve the newest save among localStorage, IndexedDB, and IP cloud.
+ * Returns true if a game is now loaded.
+ */
+async function loadAsync() {
+  try {
+    if (typeof Persist === "undefined") return load();
+    const best = await Persist.resolveBest();
+    if (!best) return false;
+    if (!applySave(best)) return false;
+    runOfflineCatchup();
+    // Mirror the winner into every durable store
+    await Persist.persistAll(G.state);
+    return true;
+  } catch (e) {
+    console.warn("loadAsync failed", e);
+    return load();
+  }
 }
 
 function togglePause() {
@@ -3473,7 +3542,17 @@ function togglePause() {
 function resetGame() {
   // Clear state first so the beforeunload autosave cannot write it back.
   G.state = null;
-  localStorage.removeItem("skytycoon");
+  try { localStorage.removeItem("skytycoon"); } catch (_) {}
+  if (typeof Persist !== "undefined") {
+    Persist.idbSet(null).catch(() => {});
+    Persist.openDB().then(db => {
+      if (!db) return;
+      try {
+        const tx = db.transaction(Persist.IDB_STORE, "readwrite");
+        tx.objectStore(Persist.IDB_STORE).delete(Persist.IDB_KEY);
+      } catch (_) {}
+    });
+  }
   location.reload();
 }
 
@@ -5208,9 +5287,10 @@ function globeState() {
 function log(msg, kind) {
   const s = G.state;
   if (!s) return;
+  if (!Array.isArray(s.log)) s.log = [];
   s.logSeq = (s.logSeq || 0) + 1;
   s.log.unshift({ t: s.gameMin, msg, kind: kind || "info", seq: s.logSeq });
-  if (s.log.length > 40) s.log.pop();
+  if (s.log.length > LOG_MAX) s.log.length = LOG_MAX;
 }
 
 function fmtMoney(v) {

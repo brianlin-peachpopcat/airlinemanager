@@ -956,6 +956,7 @@ body.tut-on[data-tut-panel="maint"] #sidebar button[data-panel="maint"],
 body.tut-on[data-tut-panel="fuel"] #sidebar button[data-panel="fuel"],
 body.tut-on[data-tut-panel="marketing"] #sidebar button[data-panel="marketing"],
 body.tut-on[data-tut-panel="events"] #sidebar button[data-panel="events"],
+body.tut-on[data-tut-panel="logs"] #sidebar button[data-panel="logs"],
 body.tut-on[data-tut-panel="company"] #sidebar button[data-panel="company"],
 body.tut-on[data-tut-panel="help"] #sidebar button[data-panel="help"] {
   border-color: var(--gold);
@@ -1714,14 +1715,139 @@ body.ui-chrome-off #devpanel {
 .hist-route { min-width: 96px; }
 .hist-when { margin-left: auto; }
 
-/* help guide (matches panel-tip blurbs) */
 .charter-brief { font-style: italic; color: var(--ink-2); }
-.help-guide { display: flex; flex-direction: column; gap: 0; }
+
+/* ChatGPT-style help desk */
+.gpt-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: min(70vh, 640px);
+}
+.gpt-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.gpt-log {
+  flex: 1;
+  min-height: 280px;
+  max-height: min(52vh, 480px);
+  overflow-y: auto;
+  padding: 12px 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.22);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.gpt-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  max-width: 100%;
+}
+.gpt-row.gpt-user { flex-direction: row-reverse; }
+.gpt-avatar {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  font-size: 10px;
+  font-weight: 700;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  color: var(--ink-3);
+}
+.gpt-user .gpt-avatar {
+  background: rgba(80, 140, 220, 0.25);
+  border-color: rgba(120, 170, 240, 0.4);
+  color: var(--ink);
+}
+.gpt-assistant .gpt-avatar {
+  background: rgba(251, 191, 36, 0.12);
+  border-color: rgba(251, 191, 36, 0.35);
+  color: var(--gold);
+}
+.gpt-bubble {
+  max-width: min(92%, 420px);
+  padding: 10px 12px;
+  border-radius: 14px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-2);
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+}
+.gpt-user .gpt-bubble {
+  background: rgba(80, 140, 220, 0.2);
+  border-color: rgba(120, 170, 240, 0.35);
+  color: var(--ink);
+  border-bottom-right-radius: 4px;
+}
+.gpt-assistant .gpt-bubble {
+  border-bottom-left-radius: 4px;
+}
+.gpt-assistant .gpt-bubble b { color: var(--gold); }
+.gpt-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-height: 72px;
+  overflow-y: auto;
+}
+.help-chip { font-size: 11px; max-width: 100%; }
+.gpt-composer {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.18);
+}
+.gpt-composer textarea {
+  flex: 1;
+  min-width: 0;
+  resize: none;
+  border: none;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.4;
+  padding: 8px 6px;
+  max-height: 120px;
+  outline: none;
+}
+.gpt-send { flex-shrink: 0; min-width: 72px; }
+.help-topic-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.help-topic-link {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 12px;
+  padding: 6px 4px;
+  cursor: pointer;
+  border-radius: 6px;
+}
+.help-topic-link:hover { color: var(--gold); background: rgba(251, 191, 36, 0.06); }
 .help-ask {
   display: flex;
   gap: 8px;
   align-items: center;
-  margin-bottom: 10px;
 }
 .help-ask input {
   flex: 1;
@@ -1736,15 +1862,44 @@ body.ui-chrome-off #devpanel {
   font-size: 13px;
 }
 .help-ask input:focus { outline: none; border-color: var(--accent); }
-.help-ask .btn { flex-shrink: 0; }
-.help-ai-status {
-  margin: -4px 0 10px;
-  min-height: 1.2em;
+
+/* History log feed */
+.log-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: min(60vh, 560px);
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.15);
 }
-.help-answer {
-  border-color: rgba(251, 191, 36, 0.35);
-  background: rgba(251, 191, 36, 0.06);
+.log-row {
+  display: grid;
+  grid-template-columns: 110px 52px 1fr;
+  gap: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  align-items: start;
 }
-.help-answer > summary { color: var(--gold); }
-.help-topic .tip-body b,
-.help-answer .tip-body b { color: var(--ink); font-weight: 650; }
+.log-row:last-child { border-bottom: none; }
+.log-time { color: var(--ink-3); white-space: nowrap; }
+.log-kind {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-3);
+}
+.log-msg { color: var(--ink-2); line-height: 1.4; }
+.log-good .log-kind { color: var(--ok); }
+.log-bad .log-kind { color: var(--bad); }
+.log-money .log-kind { color: var(--gold); }
+.log-good .log-msg { color: var(--ok); }
+.log-bad .log-msg { color: var(--bad); }
+
+@media (max-width: 700px) {
+  .log-row { grid-template-columns: 1fr; gap: 2px; }
+  .gpt-shell { min-height: 0; }
+}

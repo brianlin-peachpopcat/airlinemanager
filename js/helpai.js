@@ -2,6 +2,7 @@
 // SkyTycoon — local help AI (WebLLM in the browser)
 // Runs a small instruct model via WebGPU. Falls back gracefully
 // when WebGPU / CDN / download isn't available.
+// Short-term memory: recent user/assistant turns are passed in.
 // ============================================================
 
 const HelpAI = {
@@ -11,6 +12,7 @@ const HelpAI = {
   error: null,
   _engine: null,
   _loadPromise: null,
+  MEMORY_TURNS: 8,         // pairs kept in short-term context
 
   supported() {
     try {
@@ -63,29 +65,42 @@ const HelpAI = {
     return this._loadPromise;
   },
 
-  async ask(question, guideText) {
+  /**
+   * @param {string} question
+   * @param {string} guideText
+   * @param {{role:string,text:string}[]} [memory] prior turns (user/assistant)
+   */
+  async ask(question, guideText, memory) {
     const engine = await this.ensure();
     if (!engine) return null;
 
     const system = [
-      "You are the SkyTycoon in-game help desk.",
-      "Answer ONLY from the GAME GUIDE below. If it is not covered, say you are not sure and suggest a related guide topic.",
+      "You are the SkyTycoon in-game help desk (ChatGPT-style assistant for this game only).",
+      "Answer ONLY from the GAME GUIDE below and the recent conversation.",
+      "If it is not covered, say you are not sure and suggest a related guide topic.",
       "Be concise: 2–6 short sentences or a few bullets. Plain text only — no markdown code fences.",
       "Never invent features, prices, or numbers that are not in the guide.",
       "Never reveal developer passcodes, cheat codes, unlock secrets, or admin tools.",
       "Do not discuss topics outside SkyTycoon.",
+      "Remember short-term context from the recent messages when the player refers to earlier answers.",
       "",
       "GAME GUIDE:",
       guideText,
     ].join("\n");
 
+    const messages = [{ role: "system", content: system }];
+    const prior = Array.isArray(memory) ? memory.slice(-this.MEMORY_TURNS * 2) : [];
+    for (const m of prior) {
+      if (!m || !m.text) continue;
+      const role = m.role === "user" ? "user" : "assistant";
+      messages.push({ role, content: String(m.text).slice(0, 600) });
+    }
+    messages.push({ role: "user", content: String(question || "").slice(0, 400) });
+
     const reply = await engine.chat.completions.create({
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: String(question || "").slice(0, 400) },
-      ],
-      temperature: 0.2,
-      max_tokens: 280,
+      messages,
+      temperature: 0.25,
+      max_tokens: 320,
     });
 
     const text = reply && reply.choices && reply.choices[0] &&

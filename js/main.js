@@ -6,8 +6,7 @@ const globe = new Globe(document.getElementById("globe"));
 globe.onAirportClick = (ap) => { if (G.state) uiAirportClick(ap); };
 globe.onPlaneClick = (id) => { if (G.state) showPlaneCard(id); };
 
-// load save or show onboarding
-if (load()) {
+function afterLoadUI() {
   renderTopbar();
   // don't replay old history as popups; only surface the offline-earnings note
   UI.lastSeq = G.state.logSeq || 0;
@@ -17,9 +16,25 @@ if (load()) {
   if (latest && latest.msg.startsWith("While you were away")) {
     notify(latest.msg, latest.kind, fmtClock(latest.t).split("· ")[1]);
   }
-} else {
-  showOnboarding();
+  if (typeof Persist !== "undefined" && Persist.cloudStatus === "ok") {
+    // quiet — cloud restored
+  }
 }
+
+(async function boot() {
+  let ok = false;
+  try {
+    ok = typeof loadAsync === "function" ? await loadAsync() : load();
+  } catch (e) {
+    console.warn(e);
+    ok = load();
+  }
+  if (ok && G.state) {
+    afterLoadUI();
+  } else {
+    showOnboarding();
+  }
+})();
 
 // render loop (globe) — cache globe state; rebuilding routes every frame was costly
 let _globeCache = null, _globeCacheMs = 0;
@@ -59,9 +74,18 @@ setInterval(() => {
   renderReportCard();
 }, 500);
 
-// autosave
-setInterval(() => save(), 15000);
-window.addEventListener("beforeunload", () => save());
+// autosave — local often, cloud on flush
+setInterval(() => save(), 10000);
+window.addEventListener("beforeunload", () => {
+  save();
+  if (typeof flushCloudSave === "function") flushCloudSave();
+});
+window.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") {
+    save();
+    if (typeof flushCloudSave === "function") flushCloudSave();
+  }
+});
 window.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
   if (tutActive()) { tutExit(); return; }
