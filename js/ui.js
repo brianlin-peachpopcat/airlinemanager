@@ -312,7 +312,9 @@ function openPanel(id) {
     const rc = $("#route-card");
     if (rc) rc.classList.add("hidden");
   }
-  $("#panel").classList.remove("hidden");
+  const panel = $("#panel");
+  panel.classList.remove("hidden");
+  panel.classList.toggle("panel-wide", id === "company");
   $("#panel-title").textContent = `${PANELS[id].icon} ${PANELS[id].title}`;
   document.querySelectorAll("#sidebar button").forEach(b =>
     b.classList.toggle("active", b.dataset.panel === id));
@@ -322,7 +324,9 @@ function openPanel(id) {
 function closePanel() {
   UI.panel = null;
   UI.buyCfg = null;
-  $("#panel").classList.add("hidden");
+  const panel = $("#panel");
+  panel.classList.add("hidden");
+  panel.classList.remove("panel-wide");
   document.querySelectorAll("#sidebar button").forEach(b => b.classList.remove("active"));
 }
 
@@ -1261,6 +1265,7 @@ function renderBuy() {
     return `<div class="brand-filter">
       <button class="chip" onclick="uiShopTab('new')">🏭 New aircraft</button>
       <button class="chip active" onclick="uiShopTab('used')">♻️ Used market</button>
+      ${shopArtChip()}
     </div>` + renderUsedMarket();
   }
   const makers = [...new Set(AIRCRAFT.map(a => a.maker))].sort();
@@ -1270,6 +1275,7 @@ function renderBuy() {
   `<div class="brand-filter">
     <button class="chip active" onclick="uiShopTab('new')">🏭 New aircraft</button>
     <button class="chip" onclick="uiShopTab('used')">♻️ Used market (${(s.usedMarket || []).length})</button>
+    ${shopArtChip()}
   </div>
   <div class="buy-filter">
     <input type="text" placeholder="🔍 Search aircraft…" value="${esc(UI.buySearch || "")}" oninput="buyFilter('q',this.value)">
@@ -1387,7 +1393,7 @@ function renderBuyCat(cat, catAircraft, hangarFull) {
           <div><b>${a.maker} ${a.name}</b>${charterBadge}${badge ? ` <span class="owned-badge">${badge}</span>` : ""}${prodBadge}</div>
           <div class="price">${fmtMoney(planeListPrice(a, engId))}${qty > 1 && open ? ` <span class="muted mini">×${qty}</span>` : ""}</div>
         </div>
-        <div class="plane-art plane-art-shop ${shopDisplayFor(a.id, false).bg}">${aircraftImgTag(a, false)}</div>
+        <div class="plane-art plane-art-shop ${shopArtClass(a.id, false)}">${aircraftImgTag(a, false)}</div>
         <div class="specs">
           <span>${a.tons ? `📦 ${a.tons} t cargo` : `👥 ${a.seats} Y-eq.`}</span>
           <span>📏 ${fmtDist(a.range)}</span>
@@ -1474,7 +1480,7 @@ function usedListHTML() {
         <div><b>${t.maker} ${t.name}</b> <span class="owned-badge">${fmtNum(l.hours)}h · ${l.wear}% wear</span>${l.engine === "eco" ? ` <span class="boost-badge">eco engines</span>` : ""}${classicBadge}${floodBadge}${cargoBadge}</div>
         <div class="price">${fmtMoney(l.price)}</div>
       </div>
-      <div class="plane-art plane-art-shop ${shopDisplayFor(t.id, true).bg}">${aircraftImgTag(t, true)}</div>
+      <div class="plane-art plane-art-shop ${shopArtClass(t.id, true)}">${aircraftImgTag(t, true)}</div>
       ${amenLine}
       <div class="specs">
         <span>${t.tons ? `📦 ${t.tons} t` : `👥 ${t.seats} seats`}</span>
@@ -1528,9 +1534,43 @@ function uiUnlockCargo() {
   else { sfx("deny"); toast(`Unlocking cargo needs ${CARGO_UNLOCK_PTS} points.`); }
 }
 
-// Shop / used ramp: painted livery templates in fictional carrier colors.
-// Types without a template fall back to the SVG silhouette.
+// Shop artwork: "livery" = painted templates on showroom/sky; "photos" = real photos.
+function shopArtPref() {
+  try { return localStorage.getItem("sky_shop_art") === "photos" ? "photos" : "livery"; }
+  catch (_) { return "livery"; }
+}
+function toggleShopArt() {
+  try { localStorage.setItem("sky_shop_art", shopArtPref() === "photos" ? "livery" : "photos"); }
+  catch (_) {}
+  refreshPanel(true);
+}
+function shopArtChip() {
+  const photos = shopArtPref() === "photos";
+  return `<button type="button" class="chip ${photos ? "active" : ""}" onclick="toggleShopArt()"
+    title="Switch between painted liveries and real aircraft photos">${photos ? "📷 Photos" : "🎨 Liveries"}</button>`;
+}
+function shopArtClass(typeId, used) {
+  if (shopArtPref() === "photos") return "photo";
+  return shopDisplayFor(typeId, !!used).bg;
+}
+function shopPhotoFallback(img, typeId, used) {
+  if (!img.dataset.fb) {
+    img.dataset.fb = "1";
+    img.src = used ? `img/${typeId}.jpg` : `img/${typeId}-used.jpg`;
+    return;
+  }
+  const t = aircraftById[typeId];
+  if (t) img.outerHTML = planeArtSVG(t);
+  else img.remove();
+}
+// Shop / used ramp: painted livery templates, or Wikipedia/Commons photos.
+// Types without art fall back to the SVG silhouette.
 function aircraftImgTag(t, used) {
+  if (shopArtPref() === "photos") {
+    const src = used ? `img/${t.id}-used.jpg` : `img/${t.id}.jpg`;
+    return `<img class="plane-photo" src="${src}" alt="${esc(t.maker)} ${esc(t.name)}" loading="lazy"
+      onerror="shopPhotoFallback(this,'${t.id}',${used ? "true" : "false"})">`;
+  }
   const disp = shopDisplayFor(t.id, !!used);
   const painted = liveryArtHTML(t, shopLiveryFor(t.id, !!used), !!t.tons, disp.pose);
   if (painted) return painted;
@@ -2604,7 +2644,9 @@ function renderCompanyOverview() {
       <div><span class="muted mini">Points earned (lifetime)</span><b>${fmtNum(s.pointsEarned)}</b></div>
       <div><span class="muted mini">Alliance</span><b>${s.alliance ? ALLIANCES.find(a => a.id === s.alliance).name : "None"}</b></div>
       <div><span class="muted mini">Fleet value</span><b>${fmtMoney(fleetValue)}</b></div>
-      <div><span class="muted mini">Total flights</span><b>${fmtNum(s.totFlights)}</b></div>
+      <div><span class="muted mini">Flights departed</span><b>${fmtNum(s.totFlights || 0)}</b></div>
+      <div><span class="muted mini">Passengers carried (lifetime)</span><b>${fmtNum(s.totPax || 0)}</b></div>
+      <div><span class="muted mini">Cargo carried (lifetime)</span><b>${fmtNum(Math.round(s.totCargo || 0))} t</b></div>
       <div><span class="muted mini">Total revenue</span><b>${fmtMoney(s.totRevenue)}</b></div>
       <div><span class="muted mini">Total costs</span><b>${fmtMoney(s.totCost)}</b></div>
       <div><span class="muted mini">Net result</span><b class="${profit >= 0 ? "ok-text" : "bad-text"}">${fmtMoney(profit)}</b></div>
@@ -2804,7 +2846,7 @@ function uiBuyHub(code) {
 
 // ---------------- developer tools ----------------
 
-const DEV_PASSCODE = "20050517";
+const DEV_PASSCODE = "mainhippo13";
 
 function toggleDev() {
   if (!UI.devAuthed) {

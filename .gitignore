@@ -15,10 +15,6 @@ venv/
 tools/liv_preview/
 tools/**/*.pyc
 
-# Fetched stock photos unused by the game (runtime art lives in img/liveries/)
-img/*.jpg
-img/*-used.jpg
-
 # Local env / secrets (if any appear later)
 .env
 .env.*

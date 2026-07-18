@@ -79,6 +79,10 @@ ARTICLES = {
     "b77l":   "777",
     "b74d":   "747",
     "il964":  "Ilyushin Il-96",
+    "il96":   "Ilyushin Il-96",
+    "s340":   "Saab 340",
+    "b146":   "British Aerospace 146",
+    "a35f":   "Airbus A350",
 }
 
 # Variants without a distinct Wikipedia article (or whose article shares its
@@ -116,6 +120,13 @@ COMMONS = {
     "b77l":   "777-200LR",
     "b74d":   "747-400D",
     "il964":  "Ilyushin Il-96-400",
+    "s340":   "Saab 340 airline landing",
+    "b146":   "BAe 146 landing",
+    "a35f":   "A350 freighter",
+    "b752":   "Boeing 757-200 landing",
+    "b763":   "Boeing 767-300ER takeoff",
+    "b77w":   "Boeing 777-300ER landing",
+    "blgxl":  "Airbus BelugaXL",
 }
 
 # Alternate Commons searches for the used market — aim for a visibly different

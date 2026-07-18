@@ -2987,6 +2987,8 @@ function newGame(airlineName, hubCode, timeScale, starter, difficulty) {
     totRevenue: 0,
     totCost: 0,
     totFlights: 0,
+    totPax: 0,                  // lifetime passengers boarded
+    totCargo: 0,                // lifetime freight tonnes boarded
     log: [],
   };
   G.state.customTypes = [];
@@ -3292,6 +3294,9 @@ function load() {
       if (p.leased && p.leaseUntil == null) p.leaseUntil = G.state.gameMin + LEASE_MAX_DAYS * 1440;
     }
     if (G.state.paused == null) G.state.paused = false;
+    if (G.state.totPax == null) G.state.totPax = 0;
+    if (G.state.totCargo == null) G.state.totCargo = 0;
+    if (G.state.totFlights == null) G.state.totFlights = 0;
     for (const p of G.state.planes) {
       if (!p.homeHub) p.homeHub = G.state.hub;
       if (!p.loc) p.loc = p.homeHub || G.state.hub;
@@ -4326,6 +4331,10 @@ function boardAndCollectTickets(p, silent) {
   s.totRevenue += b.revenue;
   finTrack("rev", b.isCargo ? "Cargo revenue" : "Ticket sales", b.revenue);
   p.profit += b.revenue;
+  s.totFlights = (s.totFlights || 0) + 1;
+  if (b.isCargo) s.totCargo = Math.round(((s.totCargo || 0) + (b.carried || 0)) * 10) / 10;
+  else s.totPax = (s.totPax || 0) + Math.round(b.carried || 0);
+  b._lifeCounted = true;
   const fuelT = planeBurn(p) * distKm(airportByCode[routePath(p)[0]], airportByCode[routePath(p)[1]]) / 1000;
   pushFlightReport({
     kind: "depart",
@@ -4353,6 +4362,16 @@ function settleLandingExtras(p, arrived, silent) {
     s.totRevenue += b.revenue;
     finTrack("rev", b.isCargo ? "Cargo revenue" : "Ticket sales", b.revenue);
     p.profit += b.revenue;
+    s.totFlights = (s.totFlights || 0) + 1;
+    if (b.isCargo) s.totCargo = Math.round(((s.totCargo || 0) + (b.carried || 0)) * 10) / 10;
+    else s.totPax = (s.totPax || 0) + Math.round(b.carried || 0);
+    b._lifeCounted = true;
+  } else if (!b._lifeCounted) {
+    // Departed before lifetime counters existed — credit once on landing.
+    s.totFlights = (s.totFlights || 0) + 1;
+    if (b.isCargo) s.totCargo = Math.round(((s.totCargo || 0) + (b.carried || 0)) * 10) / 10;
+    else s.totPax = (s.totPax || 0) + Math.round(b.carried || 0);
+    b._lifeCounted = true;
   }
 
   let mealSales = 0, mealServed = 0, mealName = null;
@@ -4401,7 +4420,6 @@ function settleLandingExtras(p, arrived, silent) {
   if (b.fees > 0) finTrack("exp", "Airport fees", b.fees);
   if (b.ops > 0) finTrack("exp", "Cabin & ground ops", b.ops);
 
-  s.totFlights++;
   p.flights++;
   p.profit += landNet;
 
