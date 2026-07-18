@@ -2232,10 +2232,24 @@ const USED_STOCK_MAX = 25;
 function usedPriceOf(t, hours, wear) {
   const wearF = 1 - 0.3 * wear / 100;             // wear 20–80% → 0.94–0.76
   const ageF = Math.max(0.42, 1 - hours / 8000);  // hours → down to 0.42
-  // Map depreciation onto ~40%–62% of the new price: worn, high-time airframes
-  // stay cheap but keep a real resale floor (no fifth-of-price giveaways).
-  const frac = 0.28 + 0.39 * wearF * ageF;
-  return Math.round(t.price * planePriceMult(t) * frac / 1e5) * 1e5;
+  // ~45%–70% of factory list. Never apply Easy new-plane discounts here —
+  // stacking those into used listings made second-hand jets absurdly cheap
+  // on Easy / cloud saves while Normal localhost looked fine.
+  const frac = 0.42 + 0.28 * wearF * ageF;
+  return Math.round(t.price * frac / 1e5) * 1e5;
+}
+
+/** Refurb target: ~85% of factory list (same base as usedPriceOf — no Easy mult). */
+function usedRefurbTarget(t) {
+  return Math.round(t.price * 0.85 / 1e5) * 1e5;
+}
+
+function repriceUsedMarket() {
+  for (const l of (G.state && G.state.usedMarket) || []) {
+    const t = aircraftById[l.typeId];
+    if (!t) continue;
+    l.price = usedPriceOf(t, l.hours || 0, l.wear || 0);
+  }
 }
 
 function addUsedListing(t, opts = {}) {
@@ -2351,10 +2365,8 @@ function buyUsed(listingId, refurb) {
   }
   if (s.planes.length >= s.hangarCap) { G.err = "Hangar is full."; return false; }
   // Refurbishing resets the plane to showroom shape; the surcharge brings the
-  // all-in cost up to ~85% of a brand-new airframe (worse listings cost more).
-  const refurbCost = refurb
-    ? Math.max(0, Math.round(t.price * planePriceMult(t) * 0.85 / 1e5) * 1e5 - l.price)
-    : 0;
+  // all-in cost up to ~85% of factory list (worse listings cost more).
+  const refurbCost = refurb ? Math.max(0, usedRefurbTarget(t) - l.price) : 0;
   const total = l.price + refurbCost;
   if (s.cash < total) { G.err = `Needs ${fmtMoney(total)}${refurb ? " incl. refurbishment" : ""}.`; return false; }
   s.cash -= total;
@@ -2959,7 +2971,8 @@ function stopoverPenalty(nStops, cargo) {
 function routePath(p) {
   const r = p.route;
   const path = [r.from, ...(r.stops || []), r.to];
-  return p.leg === 0 ? path : path.reverse();
+  // copy before reverse — never mutate the forward path in place
+  return p.leg === 0 ? path : path.slice().reverse();
 }
 
 // One-way flown distance including stopovers
@@ -3416,6 +3429,9 @@ function migrateState() {
       const t = aircraftById[l.typeId];
       return t && !t.noUsed;
     });
+    // Reprice every listing so Easy-discounted / old-formula cloud saves
+    // don't keep fire-sale tags after the used-market formula update.
+    repriceUsedMarket();
     if (!Array.isArray(G.state.weather)) G.state.weather = [];
     if (!Array.isArray(G.state.weekNotes)) G.state.weekNotes = [];
     if (!Array.isArray(G.state.papers)) G.state.papers = [];
@@ -4669,6 +4685,7 @@ function landPlane(p, silent) {
     (p.legTime / 60) * WEAR_PER_HOUR * pilotWearMult() * wearDiffMult()));
   p.hours = (p.hours || 0) + p.legTime / 60;
   p.divertWx = null;
+  p.prog = 0;   // leave the en-route icon immediately — parked uses planeLoc
 
   // --- charter: ferry leg arrived at the pickup airport ---
   if (p.charter && p.charter.phase === "ferry") {
@@ -5171,8 +5188,18 @@ function toggleAutoDepartGuardCO2() {
 function departPlane(id) {
   G.err = null;
   const p = G.state.planes.find(x => x.id === id);
-  if (!p || p.status !== "ready") { G.err = "That aircraft isn't waiting for dispatch."; return false; }
+  if (!p || (p.status !== "ready" && p.status !== "hold")) {
+    G.err = "That aircraft isn't waiting for dispatch.";
+    return false;
+  }
   attemptDepart(p, false);
+  // Still waiting (fuel/weather/etc.) — surface the hold reason
+  if (p.status !== "fly") {
+    G.err = p.holdReason === "fuel" ? "Not enough fuel on hand."
+      : (G.err || "Could not depart — check fuel, weather, and wear.");
+    save();
+    return false;
+  }
   save();
   return true;
 }
@@ -5228,58 +5255,75 @@ function unlockCargo() {
   return true;
 }
 
+function globeFlightEntry(p) {
+  if (!p || p.status !== "fly") return null;
+  if (p.charter) {
+    const c = p.charter;
+    const segA = c.phase === "ferry" ? (c.ferryFrom || c.from) : c.from;
+    const segB = c.phase === "ferry" ? c.from : c.to;
+    const a = airportByCode[segA], b = airportByCode[segB];
+    if (!a || !b) return null;
+    return { id: p.id, from: a, to: b, prog: Math.max(0, Math.min(1, p.prog || 0)), segA, segB };
+  }
+  if (!p.route) return null;
+  const dir = routePath(p);
+  const i = Math.min(Math.max(0, p.segIdx || 0), Math.max(0, dir.length - 2));
+  const a = airportByCode[dir[i]], b = airportByCode[dir[i + 1]];
+  if (!a || !b) return null;
+  return { id: p.id, from: a, to: b, prog: Math.max(0, Math.min(1, p.prog || 0)), segA: dir[i], segB: dir[i + 1] };
+}
+
+/** Cheap per-frame refresh so landings leave the en-route icon immediately. */
+function syncGlobeFlights(state) {
+  if (!state || !G.state) return;
+  const planesInFlight = [];
+  const parked = {};
+  for (const p of G.state.planes) {
+    const flight = globeFlightEntry(p);
+    if (flight) {
+      planesInFlight.push(flight);
+      continue;
+    }
+    const at = planeLoc(p);
+    if (!at) continue;
+    if (!parked[at]) parked[at] = [];
+    parked[at].push(p.id);
+  }
+  state.planesInFlight = planesInFlight;
+  state.parked = parked;
+}
+
 function globeState() {
   const s = G.state;
   const routeCodes = new Set();
   const pairs = new Map();
-  const planesInFlight = [];
   const addPair = (c1, c2, highlight) => {
+    if (!c1 || !c2 || !airportByCode[c1] || !airportByCode[c2]) return;
     const key = [c1, c2].sort().join("-");
     if (!pairs.has(key)) {
       pairs.set(key, { from: airportByCode[c1], to: airportByCode[c2], highlight: false });
     }
     if (highlight) pairs.get(key).highlight = true;
-    return key;
   };
   for (const p of s.planes) {
-    // one-off charter flights (incl. the ferry leg to the pickup airport)
-    if (p.charter && p.status === "fly") {
-      const c = p.charter;
-      const segA = c.phase === "ferry" ? (c.ferryFrom || c.from) : c.from;
-      const segB = c.phase === "ferry" ? c.from : c.to;
-      addPair(segA, segB, true);
-      planesInFlight.push({
-        id: p.id,
-        from: airportByCode[segA],
-        to: airportByCode[segB],
-        prog: Math.max(0, Math.min(1, p.prog)),
-      });
-    }
+    const flight = globeFlightEntry(p);
+    if (flight) addPair(flight.segA, flight.segB, true);
     if (!p.route) continue;
     const path = [p.route.from, ...(p.route.stops || []), p.route.to];
     for (const c of path) routeCodes.add(c);
     for (let i = 0; i < path.length - 1; i++) addPair(path[i], path[i + 1], false);
-    if (p.status === "fly" && !p.charter) {
-      const dir = routePath(p);
-      const a = airportByCode[dir[p.segIdx]];
-      const b = airportByCode[dir[p.segIdx + 1]];
-      addPair(dir[p.segIdx], dir[p.segIdx + 1], true);
-      planesInFlight.push({ id: p.id, from: a, to: b, prog: Math.max(0, Math.min(1, p.prog)) });
-    }
-  }
-  // parked aircraft ids, grouped by where they sit (clickable on the globe)
-  const parked = {};
-  for (const p of s.planes) {
-    if (p.status === "fly") continue;
-    const at = planeLoc(p);
-    if (!parked[at]) parked[at] = [];
-    parked[at].push(p.id);
   }
   const weather = (s.weather || []).map(w => {
     const z = WEATHER_ZONES[w.zone];
     return { lat: z.lat, lon: z.lon, name: z.name, typhoon: !!z.typhoon };
   });
-  return { hub: s.hub, hubs: new Set(s.hubs), routeCodes, routeList: [...pairs.values()], planesInFlight, parked, weather };
+  const state = {
+    hub: s.hub, hubs: new Set(s.hubs), routeCodes,
+    routeList: [...pairs.values()],
+    planesInFlight: [], parked: {}, weather,
+  };
+  syncGlobeFlights(state);
+  return state;
 }
 
 // ---------------- helpers ----------------

@@ -763,10 +763,12 @@ class Globe {
         if (id) this._planeScreen.push({ id, x, y });
       };
       if (list.length) {
-        const show = list.slice(0, 5);
+        // Compact apron stack — slight pile at the airport, not a long taxi line
+        // that can look like aircraft sitting on someone else's route.
+        const show = list.slice(0, 4);
         show.forEach((id, i) => {
-          const ox = (i - (show.length - 1) / 2) * 16;
-          const oy = 12 + (i % 2) * 3;
+          const ox = ((i % 2) * 2 - 0.5) * 3;
+          const oy = 9 + i * 3.2;
           drawOne(s.x + ox, s.y + oy, id);
         });
         if (n > show.length) {
@@ -774,9 +776,9 @@ class Globe {
           ctx.lineJoin = "round";
           ctx.miterLimit = 2;
           ctx.strokeStyle = "rgba(10,30,60,0.75)";
-          ctx.strokeText("+" + (n - show.length), s.x + 14, s.y + 22);
+          ctx.strokeText("+" + (n - show.length), s.x + 10, s.y + 9 + show.length * 3.2);
           ctx.fillStyle = "rgba(235,242,250,0.9)";
-          ctx.fillText("+" + (n - show.length), s.x + 14, s.y + 22);
+          ctx.fillText("+" + (n - show.length), s.x + 10, s.y + 9 + show.length * 3.2);
         }
       } else {
         drawOne(s.x, s.y + 10, null);
@@ -1003,6 +1005,7 @@ class Globe {
   }
 
   drawPlane(a, b, prog) {
+    if (!a || !b || a.lat == null || b.lat == null) return null;
     const ll1 = Globe.vecToLatLon(Globe.slerpVec(a, b, prog));
     const ll2 = Globe.vecToLatLon(Globe.slerpVec(a, b, Math.min(1, prog + 0.01)));
     const p1 = this.project(ll1.lat, ll1.lon);

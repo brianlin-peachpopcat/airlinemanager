@@ -36,14 +36,17 @@ function afterLoadUI() {
   }
 })();
 
-// render loop (globe) — cache globe state; rebuilding routes every frame was costly
+// render loop (globe) — cache routes/weather; refresh flight/parked icons every frame
+// so landings snap to the apron instead of lingering on an old route arc
 let _globeCache = null, _globeCacheMs = 0;
 function frame() {
   if (G.state) {
     const now = performance.now();
-    if (!_globeCache || now - _globeCacheMs > 120) {
+    if (!_globeCache || now - _globeCacheMs > 250) {
       _globeCache = globeState();
       _globeCacheMs = now;
+    } else if (typeof syncGlobeFlights === "function") {
+      syncGlobeFlights(_globeCache);
     }
     globe.render(_globeCache);
   } else {

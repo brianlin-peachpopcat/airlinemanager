@@ -1484,7 +1484,7 @@ function usedListHTML() {
   return list.map(l => {
     const t = aircraftById[l.typeId];
     if (!t) return "";
-    const refurbCost = Math.max(0, Math.round(t.price * planePriceMult(t) * 0.85 / 1e5) * 1e5 - l.price);
+    const refurbCost = Math.max(0, usedRefurbTarget(t) - l.price);
     const classicBadge = t.usedOnly
       ? ` <span class="boost-badge">${t.id === "conc" ? "🛦 Mach 2 legend" : "♻️ classic — used only"}</span>`
       : "";
@@ -2457,6 +2457,7 @@ function uiDepart(id) {
     // attemptDepart already plays sfx("depart"); skip the generic button click
     _sfxSkipClick = true;
     refreshPanel(true);
+    renderPlaneCard();
     showDepartCard(id);
   } else { sfx("deny"); toast(G.err || "Cannot depart."); }
 }
@@ -3808,6 +3809,8 @@ function renderPlaneCard() {
     <div class="ac-row">Aboard: <b>${payload}</b></div>
     <div class="ac-row muted mini">${d ? `Leg ${fmtNum(d)} km · ` : ""}${engineOf(p.engine).name} engines · ${planeBurn(p).toFixed(1)} kg/km · wear ${Math.round(p.wear)}%${p.route && p.route.fareMult !== 1 ? ` · fares ${Math.round((p.route.fareMult || 1) * 100)}%` : ""}</div>
     <div class="ac-row card-actions">
+      ${p.status === "ready" ? `<button class="btn mini-btn btn-gold" onclick="uiDepart('${p.id}')">🛫 Depart${wouldOverdraftCO2(p) ? ` <span class="bad-text">⚠ CO₂</span>` : ""}</button>` : ""}
+      ${p.status === "hold" ? `<button class="btn mini-btn btn-gold" onclick="uiDepart('${p.id}')">🛫 Retry depart${wouldOverdraftCO2(p) ? ` <span class="bad-text">⚠ CO₂</span>` : ""}</button>` : ""}
       <button class="btn mini-btn ${routeOpen ? "btn-gold" : ""}" ${canOps ? "" : "disabled"} onclick="toggleRouteForm('${p.id}')">${p.route ? "Edit route" : "Assign route"}</button>
       ${p.route ? `<button class="btn mini-btn" ${canOps ? "" : "disabled"} onclick="clearRoute('${p.id}');refreshRouteUI()">Unassign</button>` : ""}
       ${freight ? "" : `<button class="btn mini-btn ${paxOpen ? "btn-gold" : ""}" onclick="showPaxView('${p.id}')">${paxOpen ? "🪟 Hide window" : "🪟 Passenger view"}</button>`}
@@ -4350,8 +4353,8 @@ function helpChatMessages() {
       ? G.state.helpChat.slice()
       : [{
         role: "assistant",
-        text: "Hi — I’m your SkyTycoon help desk. Ask about fuel, routes, training points, chefs, charters… I’ll remember this chat for a bit.",
-        html: "Hi — I’m your SkyTycoon help desk. Ask about fuel, routes, training points, chefs, charters… I’ll remember this chat for a bit.",
+        text: "Hi — I’m your SkyTycoon help desk. Ask about fuel, routes, training points, chefs, charters… I’ll remember this chat for a bit. I’m a small on-device model and can be wrong — if something looks off, email brianhxlin@gmail.com.",
+        html: "Hi — I’m your SkyTycoon help desk. Ask about fuel, routes, training points, chefs, charters… I’ll remember this chat for a bit.<br><br><span class=\"muted mini\">I’m a small on-device model and can be wrong. If an answer looks off, email <a href=\"mailto:brianhxlin@gmail.com\">brianhxlin@gmail.com</a>.</span>",
       }];
   }
   return UI.helpChat;
@@ -4460,6 +4463,7 @@ function renderHelp() {
           ${busy ? "disabled" : ""}>${esc(UI.helpDraft || "")}</textarea>
         <button type="submit" class="btn btn-gold gpt-send" ${busy ? "disabled" : ""}>${busy ? "…" : "Send"}</button>
       </form>
+      <div class="gpt-disclaimer muted mini">AI answers can be wrong. If something looks off, email <a href="mailto:brianhxlin@gmail.com">brianhxlin@gmail.com</a>.</div>
       <details class="panel-tip" style="margin-top:10px">
         <summary>Browse all topics</summary>
         <div class="tip-body help-topic-list">${HELP_FAQ.map(item =>
@@ -4533,8 +4537,8 @@ function uiHelpChip(id) {
 function uiHelpClear() {
   UI.helpChat = [{
     role: "assistant",
-    text: "New chat — what do you want to know about SkyTycoon?",
-    html: "New chat — what do you want to know about SkyTycoon?",
+    text: "New chat — what do you want to know about SkyTycoon? I’m a small on-device model and can be wrong — if an answer looks off, email brianhxlin@gmail.com.",
+    html: "New chat — what do you want to know about SkyTycoon?<br><br><span class=\"muted mini\">I’m a small on-device model and can be wrong. If an answer looks off, email <a href=\"mailto:brianhxlin@gmail.com\">brianhxlin@gmail.com</a>.</span>",
   }];
   if (G.state) G.state.helpChat = UI.helpChat.slice();
   UI.helpBusy = false;

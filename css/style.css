@@ -1825,6 +1825,12 @@ body.ui-chrome-off #devpanel {
   outline: none;
 }
 .gpt-send { flex-shrink: 0; min-width: 72px; }
+.gpt-disclaimer {
+  margin-top: 8px;
+  line-height: 1.35;
+  opacity: 0.85;
+}
+.gpt-disclaimer a { color: var(--gold); text-decoration: underline; text-underline-offset: 2px; }
 .help-topic-list {
   display: flex;
   flex-direction: column;
