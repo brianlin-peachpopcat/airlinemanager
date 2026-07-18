@@ -51,10 +51,16 @@ class Globe {
     this._pinchDist = 0;
 
     canvas.addEventListener("pointerdown", (e) => {
+      const rect = canvas.getBoundingClientRect();
+      this.mouseX = e.clientX - rect.left;
+      this.mouseY = e.clientY - rect.top;
       this._ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
       this.dragging = true; this.moved = false;
+      this._downX = e.clientX; this._downY = e.clientY;
       this._vLon = 0; this._vTilt = 0;       // kill any spin momentum
       this.lastX = e.clientX; this.lastY = e.clientY;
+      // Refresh hover under the finger immediately (touch often skips pointermove).
+      this._refreshHoverAt(this.mouseX, this.mouseY);
       if (this._ptrs.size === 2) {
         const pts = [...this._ptrs.values()];
         this._pinchDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
@@ -87,15 +93,22 @@ class Globe {
       }
       if (this.dragging) {
         const dx = e.clientX - this.lastX, dy = e.clientY - this.lastY;
-        if (Math.abs(dx) + Math.abs(dy) > 2) this.moved = true;
-        const dLon = dx / (this.radius() * 1.1);
-        const dTilt = dy / (this.radius() * 1.1);
-        this.rotLon += dLon;
-        this.tilt = Math.max(-1.55, Math.min(1.55, this.tilt + dTilt));
-        // exponential moving average of the drag velocity → release momentum
-        this._vLon = 0.7 * dLon + 0.3 * (this._vLon || 0);
-        this._vTilt = 0.7 * dTilt + 0.3 * (this._vTilt || 0);
+        // Fingers jitter more than a mouse — use a larger slop before treating as drag.
+        const slop = this._touchHit() ? 14 : 3;
+        const fromDown = Math.hypot(e.clientX - (this._downX || e.clientX), e.clientY - (this._downY || e.clientY));
+        if (fromDown > slop || Math.abs(dx) + Math.abs(dy) > slop) this.moved = true;
+        if (this.moved) {
+          const dLon = dx / (this.radius() * 1.1);
+          const dTilt = dy / (this.radius() * 1.1);
+          this.rotLon += dLon;
+          this.tilt = Math.max(-1.55, Math.min(1.55, this.tilt + dTilt));
+          // exponential moving average of the drag velocity → release momentum
+          this._vLon = 0.7 * dLon + 0.3 * (this._vLon || 0);
+          this._vTilt = 0.7 * dTilt + 0.3 * (this._vTilt || 0);
+        }
         this.lastX = e.clientX; this.lastY = e.clientY;
+      } else {
+        this._refreshHoverAt(this.mouseX, this.mouseY);
       }
     });
     const endPtr = (e) => {
@@ -105,15 +118,26 @@ class Globe {
     };
     canvas.addEventListener("pointerup", (e) => {
       const wasPinch = this._ptrs.size >= 2 || this._pinchDist > 0;
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      this.mouseX = x; this.mouseY = y;
       endPtr(e);
       if (this._ptrs.size > 0) return;       // still holding another finger
       this.dragging = false;
       if (this.moved || wasPinch) return;
-      if (this.hoverPlane && this.onPlaneClick) this.onPlaneClick(this.hoverPlane);
-      else if (this.hoverAirport && this.onAirportClick) this.onAirportClick(this.hoverAirport);
+      // Hit-test at the tap point — don't rely on last-frame hover (broken on touch).
+      const hit = this.hitTestAt(x, y);
+      if (hit.plane && this.onPlaneClick) this.onPlaneClick(hit.plane);
+      else if (hit.airport && this.onAirportClick) this.onAirportClick(hit.airport);
     });
     canvas.addEventListener("pointercancel", endPtr);
-    canvas.addEventListener("pointerleave", () => { this.hoverAirport = null; });
+    canvas.addEventListener("pointerleave", () => {
+      if (!this.dragging) {
+        this.hoverAirport = null;
+        this.hoverPlane = null;
+      }
+    });
     canvas.addEventListener("wheel", (e) => {
       e.preventDefault();
       // Normalize wheel / trackpad deltas so zoom speed feels even.
@@ -367,8 +391,40 @@ class Globe {
   // Coarse pointers (fingers) need bigger airport / plane hit targets.
   _touchHit() {
     try {
-      return typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches;
-    } catch (_) { return false; }
+      if (typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches) return true;
+    } catch (_) {}
+    return typeof navigator !== "undefined" && (navigator.maxTouchPoints || 0) > 0;
+  }
+
+  planeHitR() { return this._touchHit() ? 40 : 14; }
+  airportHitPad() { return this._touchHit() ? 22 : 7; }
+
+  /** Closest plane / airport under a canvas point. Planes win ties (easier dispatch taps). */
+  hitTestAt(x, y) {
+    let plane = null, planeD = Infinity;
+    const planeR = this.planeHitR();
+    for (const pl of (this._planeScreen || [])) {
+      const d = Math.hypot(x - pl.x, y - pl.y);
+      const r = pl.r != null ? pl.r : planeR;
+      if (d <= r && d < planeD) { planeD = d; plane = pl.id; }
+    }
+    let airport = null, airportD = Infinity;
+    const pad = this.airportHitPad();
+    for (const a of (this._airportScreen || [])) {
+      const d = Math.hypot(x - a.x, y - a.y);
+      const r = (a.r || 4) + pad;
+      if (d <= r && d < airportD) { airportD = d; airport = a.ap; }
+    }
+    // Prefer a plane unless the airport is clearly closer
+    if (plane && airport && airportD + 6 < planeD) plane = null;
+    return { plane, airport };
+  }
+
+  _refreshHoverAt(x, y) {
+    if (x == null || y == null) return;
+    const hit = this.hitTestAt(x, y);
+    this.hoverPlane = hit.plane;
+    this.hoverAirport = hit.airport;
   }
 
   // Discrete zoom bands stop airports flickering in/out while scrolling.
@@ -635,22 +691,16 @@ class Globe {
     }
 
     // --- planes in flight (clickable, always above ground markers) ---
-    let hoverPlane = null;
     if (state) {
       for (const pl of state.planesInFlight) {
         const s = this.drawPlane(pl.from, pl.to, pl.prog);
         if (s && pl.id) {
-          this._planeScreen.push({ id: pl.id, x: s.x, y: s.y });
+          this._planeScreen.push({ id: pl.id, x: s.x, y: s.y, r: this.planeHitR() });
         }
       }
     }
-    if (this.mouseX != null) {
-      const planeHit = this._touchHit() ? 22 : 12;
-      for (const pl of this._planeScreen) {
-        if (Math.hypot(this.mouseX - pl.x, this.mouseY - pl.y) < planeHit) hoverPlane = pl.id;
-      }
-    }
-    this.hoverPlane = hoverPlane;
+    if (this.mouseX != null) this._refreshHoverAt(this.mouseX, this.mouseY);
+    const hoverPlane = this.hoverPlane;
     const hover = this.hoverAirport;
     this.canvas.style.cursor = (hoverPlane || hover)
       ? "pointer"
@@ -677,7 +727,6 @@ class Globe {
     const ctx = this.ctx;
     const labelPlaced = [];
     const band = this.lodBand();
-    let hover = null;
     for (const ap of AIRPORTS) {
       const p = this.projectAp(ap);
       if (p.z <= 0.02) continue;
@@ -692,8 +741,7 @@ class Globe {
       const rr = (isHub ? 6 : isOwnedHub ? 5 : (2 + dSize * 0.28)) * zoomShrink;
       this._airportScreen.push({ ap, x: s.x, y: s.y, r: rr });
 
-      const pad = this._touchHit() ? 16 : 7;
-      if (this.mouseX != null && Math.hypot(this.mouseX - s.x, this.mouseY - s.y) < rr + pad) hover = ap;
+      // Hover is resolved once after all markers via hitTestAt (touch-safe).
 
       ctx.beginPath();
       ctx.arc(s.x, s.y, rr, 0, 7);
@@ -728,7 +776,6 @@ class Globe {
         ctx.fillText(text, lx, ly);
       }
     }
-    this.hoverAirport = hover;
   }
 
   drawParkedFleet(state) {
@@ -746,7 +793,7 @@ class Globe {
       const list = Array.isArray(ids) ? ids : [];
       const n = list.length || (+ids || 0);
       if (!n) continue;
-      const drawOne = (x, y, id) => {
+      const drawOne = (x, y, id, hitR) => {
         ctx.save();
         ctx.translate(x, y);
         ctx.scale(1.25, 1.25);
@@ -760,16 +807,19 @@ class Globe {
         ctx.lineTo(-1.6, 1.2); ctx.lineTo(-2.6, 5.2); ctx.lineTo(-1, 5.5); ctx.lineTo(1.5, 1.4);
         ctx.closePath(); ctx.fill(); ctx.stroke();
         ctx.restore();
-        if (id) this._planeScreen.push({ id, x, y });
+        if (id) this._planeScreen.push({ id, x, y, r: hitR != null ? hitR : this.planeHitR() });
       };
       if (list.length) {
         // Compact apron stack — slight pile at the airport, not a long taxi line
         // that can look like aircraft sitting on someone else's route.
         const show = list.slice(0, 4);
+        const stackR = this._touchHit() ? 48 : 18;
+        // One fat apron target first (top of stack) so a near-miss still opens a plane.
+        this._planeScreen.push({ id: show[0], x: s.x, y: s.y + 12, r: stackR });
         show.forEach((id, i) => {
           const ox = ((i % 2) * 2 - 0.5) * 3;
           const oy = 9 + i * 3.2;
-          drawOne(s.x + ox, s.y + oy, id);
+          drawOne(s.x + ox, s.y + oy, id, this.planeHitR());
         });
         if (n > show.length) {
           ctx.lineWidth = 3;

@@ -15,6 +15,7 @@
   <header id="topbar">
     <div class="brand">✈ SkyTycoon<span class="airline-name" id="tb-airline"></span></div>
     <div class="tb-ap-search" id="tb-ap-search">
+      <div class="tb-ap-from" id="tb-ap-from" hidden></div>
       <input id="tb-ap-q" type="search" placeholder="Find airport…" autocomplete="off"
         oninput="tbApSearch(this.value)" onfocus="tbApSearch(this.value)"
         onkeydown="tbApKey(event)">

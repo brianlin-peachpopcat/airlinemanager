@@ -194,17 +194,19 @@ function apkSet(key, which, val) {
   if (el) el.innerHTML = apkListHTML(key);
 }
 
-// ---------------- topbar airport search ----------------
-UI.tbAp = { q: "", idx: 0, list: [] };
+// ---------------- topbar airport search (origin → destination route research) ----------------
+UI.tbAp = { q: "", idx: 0, list: [], from: null };
 
 function tbApMatches(q) {
   q = (q || "").trim().toLowerCase();
   if (!q) return [];
+  const from = UI.tbAp.from;
   return AIRPORTS
     .filter(a =>
-      a.code.toLowerCase().includes(q) ||
+      a.code !== from &&
+      (a.code.toLowerCase().includes(q) ||
       a.city.toLowerCase().includes(q) ||
-      a.country.toLowerCase().includes(q))
+      a.country.toLowerCase().includes(q)))
     .sort((a, b) => {
       const ac = a.code.toLowerCase() === q ? 0 : a.code.toLowerCase().startsWith(q) ? 1 : 2;
       const bc = b.code.toLowerCase() === q ? 0 : b.code.toLowerCase().startsWith(q) ? 1 : 2;
@@ -213,15 +215,56 @@ function tbApMatches(q) {
     .slice(0, 12);
 }
 
+function tbApSyncChrome() {
+  const inp = document.getElementById("tb-ap-q");
+  const chip = document.getElementById("tb-ap-from");
+  const wrap = document.getElementById("tb-ap-search");
+  const from = UI.tbAp.from && airportByCode[UI.tbAp.from];
+  if (wrap) wrap.classList.toggle("tb-ap-dest-mode", !!from);
+  if (chip) {
+    if (from) {
+      chip.hidden = false;
+      chip.innerHTML = `<span class="tb-ap-from-lbl">From</span><b>${from.code}</b>` +
+        `<button type="button" class="tb-ap-from-x" onclick="tbApClearFrom()" title="Clear origin">×</button>`;
+    } else {
+      chip.hidden = true;
+      chip.innerHTML = "";
+    }
+  }
+  if (inp) {
+    inp.placeholder = from
+      ? `Destination from ${from.code}…`
+      : "Find airport…";
+    if (!UI.tbAp.q) inp.value = "";
+  }
+}
+
+function tbApClearFrom() {
+  UI.tbAp.from = null;
+  UI.lastAirport = null;
+  const inp = document.getElementById("tb-ap-q");
+  if (inp) { inp.value = ""; inp.focus(); }
+  tbApSearch("");
+  tbApSyncChrome();
+}
+
 function tbApSearch(q) {
   UI.tbAp.q = q;
   UI.tbAp.list = tbApMatches(q);
   UI.tbAp.idx = 0;
+  tbApSyncChrome();
   const drop = document.getElementById("tb-ap-drop");
   if (!drop) return;
+  const from = UI.tbAp.from && airportByCode[UI.tbAp.from];
   if (!UI.tbAp.q.trim()) {
-    drop.classList.add("hidden");
-    drop.innerHTML = "";
+    if (from) {
+      // Keep the dropdown open with a hint so destination mode is obvious.
+      drop.classList.remove("hidden");
+      drop.innerHTML = `<div class="tb-ap-empty muted mini">Type a destination city or code to research <b>${from.code}</b> ⇄ …<br><span class="mini">Esc clears the origin.</span></div>`;
+    } else {
+      drop.classList.add("hidden");
+      drop.innerHTML = "";
+    }
     return;
   }
   if (!UI.tbAp.list.length) {
@@ -229,23 +272,31 @@ function tbApSearch(q) {
     drop.innerHTML = `<div class="tb-ap-empty muted mini">No airports match.</div>`;
     return;
   }
+  const head = from
+    ? `<div class="tb-ap-empty muted mini">Route research · from <b>${from.code}</b></div>`
+    : `<div class="tb-ap-empty muted mini">Pick an airport — then search a destination to research the route.</div>`;
   drop.classList.remove("hidden");
-  drop.innerHTML = UI.tbAp.list.map((a, i) =>
+  drop.innerHTML = head + UI.tbAp.list.map((a, i) =>
     `<button type="button" class="tb-ap-item${i === 0 ? " active" : ""}" data-i="${i}"
       onmousedown="event.preventDefault(); tbApPick('${a.code}')">
       <b>${a.code}</b><span class="tb-ap-city">${esc(a.city)}</span>
-      <span class="muted mini">${esc(a.country)}</span>
+      <span class="muted mini">${esc(a.country)}${from ? ` · ${fmtNum(Math.round(distKm(from, a)))} km` : ""}</span>
     </button>`).join("");
 }
 
 function tbApKey(e) {
-  const drop = document.getElementById("tb-ap-drop");
   if (e.key === "Escape") {
     e.preventDefault();
     const inp = document.getElementById("tb-ap-q");
-    if (inp) inp.value = "";
-    tbApSearch("");
-    inp && inp.blur();
+    if (UI.tbAp.q) {
+      if (inp) inp.value = "";
+      tbApSearch("");
+    } else if (UI.tbAp.from) {
+      tbApClearFrom();
+    } else {
+      inp && inp.blur();
+      tbApSearch("");
+    }
     return;
   }
   if (!UI.tbAp.list.length) {
@@ -280,13 +331,33 @@ function tbApPick(code) {
   const ap = airportByCode[code];
   if (!ap) return;
   const inp = document.getElementById("tb-ap-q");
-  if (inp) inp.value = `${ap.code} · ${ap.city}`;
-  tbApSearch("");
   if (typeof globe !== "undefined" && globe) {
     globe.focusAirport(ap, ap.ocean || ap.size <= 4 ? 3.6 : 2.8);
   }
+
+  // Second pick with an origin → research the pair (same as clicking two airports).
+  if (G.state && UI.tbAp.from && UI.tbAp.from !== code) {
+    const fromCode = UI.tbAp.from;
+    showRouteCard(fromCode, code);
+    UI.lastAirport = code;
+    UI.tbAp.from = code;   // chain: next search is destination from here
+    if (inp) inp.value = "";
+    UI.tbAp.q = "";
+    tbApSearch("");
+    tbApSyncChrome();
+    if (inp) inp.focus();
+    return;
+  }
+
+  UI.tbAp.from = code;
+  UI.lastAirport = code;
+  if (inp) inp.value = "";
+  UI.tbAp.q = "";
+  tbApSearch("");
+  tbApSyncChrome();
   if (G.state) showAirportCard(ap);
   else toast(`${ap.code} — ${ap.city}, ${ap.country}`);
+  if (inp) inp.focus();
 }
 
 document.addEventListener("pointerdown", (e) => {
@@ -646,13 +717,14 @@ function renderFleet() {
       : `<button class="btn" ${p.status === "maint" ? "disabled" : ""} onclick="uiGround('${p.id}')">${p.status === "fly" || p.groundAfterLand ? "Recall & ground" : "Ground"}</button>`;
     return `<div class="card">
       <div class="card-head">
-        <div><b>${p.id}</b> <span class="muted">${t.maker} ${t.name}</span> ${brandTag} ${leaseTag}</div>
+        <div><button type="button" class="fleet-plane-link" onclick="uiOpenPlaneCard('${p.id}')" title="Open flight card"><b>${p.id}</b></button> <span class="muted">${t.maker} ${t.name}</span> ${brandTag} ${leaseTag}</div>
         ${routeStr}
       </div>
       <div class="card-row muted mini">${statusText(p)} · ${p.homeHub || s.hub}
         · ${p.freighter ? `📦 ${planeTons(p)} t` : p.vipLayout ? cabinSummary(null, p) : p.cabin ? cabinSummary(p.cabin) : "freighter"}
         · ${wearBar(p)}</div>
       <div class="card-actions">
+        <button class="btn ${UI.planeCardId === p.id ? "btn-gold" : ""}" onclick="uiOpenPlaneCard('${p.id}')">✈ Flight card</button>
         ${p.status === "ready" ? `<button class="btn btn-gold" onclick="uiDepart('${p.id}')">🛫 Depart${wouldOverdraftCO2(p) ? ` <span class="bad-text">⚠ CO₂</span>` : ""}</button>` : ""}
         <button class="btn" ${canOps ? "" : "disabled"} onclick="toggleRouteForm('${p.id}')">${p.route ? "Route" : "Assign route"}</button>
         ${p.route ? `<button class="btn" ${canOps ? "" : "disabled"} onclick="clearRoute('${p.id}');refreshRouteUI()">Unassign</button>` : ""}
@@ -672,6 +744,17 @@ function renderFleet() {
 
 function toggleFleetMore(id) {
   UI.fleetMore = UI.fleetMore === id ? null : id;
+  refreshPanel(true);
+}
+
+function uiOpenPlaneCard(id) {
+  showPlaneCard(id);
+  // Keep fleet open on desktop; on phones the card is full-width so close the panel.
+  try {
+    if (typeof matchMedia === "function" && matchMedia("(max-width: 900px)").matches) {
+      closePanel();
+    }
+  } catch (_) {}
   refreshPanel(true);
 }
 
@@ -2864,7 +2947,11 @@ function showAirportCard(ap) {
        <div class="ac-row">Demand: <b>≈ ${fmtNum(dem)} pax/day</b> each way</div>
        <div class="ac-row">Freight: <b>≈ ${fmtNum(cdem)} t/day</b> each way</div>`}
     ${hubRow}
+    <div class="ac-row muted mini">Search a <b>destination</b> in the top bar to research a route from ${ap.code} — or click another airport on the globe.</div>
   `;
+  UI.tbAp.from = ap.code;
+  UI.lastAirport = ap.code;
+  tbApSyncChrome();
 }
 
 function uiBuyHub(code) {
@@ -3030,10 +3117,12 @@ function devGraduate() {
 function uiAirportClick(ap) {
   if (UI.lastAirport && UI.lastAirport !== ap.code) {
     showRouteCard(UI.lastAirport, ap.code);
+    UI.tbAp.from = ap.code;
+    UI.lastAirport = ap.code;
+    tbApSyncChrome();
   } else {
     showAirportCard(ap);
   }
-  UI.lastAirport = ap.code;
 }
 
 function showRouteCard(codeA, codeB) {
@@ -3086,12 +3175,17 @@ function showRouteCard(codeA, codeB) {
     <div class="ac-row muted mini">${inRange} of your ${G.state.planes.length} aircraft have the range${
       G.state.hubs.includes(codeA) || G.state.hubs.includes(codeB) ? "" : " · neither end is your hub"}</div>
     ${evs.length ? `<div class="ac-row mini">${evs.map(ev => `<span class="${ev.mult >= 1 ? "ok-text" : "bad-text"}">📰 ${esc(ev.name)} ×${ev.mult}</span>`).join(" ")}</div>` : ""}
-    <div class="ac-row muted mini">Click another airport to research the next leg.</div>`;
+    <div class="ac-row muted mini">Search another destination in the top bar, or click an airport, to research the next leg.</div>`;
+  UI.tbAp.from = codeB;
+  UI.lastAirport = codeB;
+  tbApSyncChrome();
 }
 
 function closeRouteCard() {
   UI.lastAirport = null;
+  UI.tbAp.from = null;
   $("#route-card").classList.add("hidden");
+  tbApSyncChrome();
 }
 
 // ---------------- flight info card (click a plane on the globe) ----------------
@@ -4098,7 +4192,7 @@ const HELP_FAQ = [
     q: "Why don’t I see my favourite airport?",
     keys: ["airport", "airports", "zoom", "globe", "map", "dots", "jfk", "lga", "ewr", "parked", "visible"],
     phrases: ["favourite airport", "favorite airport", "can't see", "dont see"],
-    a: `The globe hides smaller markets when you’re zoomed out so the map stays readable. Scroll or pinch to zoom in — tiny airports only appear up close, and you can zoom quite far to separate metro clusters (e.g. JFK, LGA and EWR). Your hubs, route endpoints, and parked aircraft always stay visible no matter the zoom. Parked planes draw on top of airport dots so you can tap them after landing — switch to <b>Airports on top</b> under Company if you’d rather tap the dots instead.`,
+    a: `The globe hides smaller markets when you’re zoomed out so the map stays readable. Scroll or pinch to zoom in — tiny airports only appear up close, and you can zoom quite far to separate metro clusters (e.g. JFK, LGA and EWR). Your hubs, route endpoints, and parked aircraft always stay visible no matter the zoom. Parked planes draw on top of airport dots so you can tap them after landing — switch to <b>Airports on top</b> under Company if you’d rather tap the dots instead. On phones, taps use a larger hit area; if a plane is still hard to hit, open <b>Fleet Management</b> and press <b>Flight card</b> (or tap the registration).`,
   },
   {
     id: "lease",
@@ -4725,7 +4819,7 @@ const TUTORIAL = [
   {
     id: "topbar",
     title: "Your flight deck (top bar)",
-    body: `Up top you’ll always see <b>cash</b>, <b>⭐ points</b>, <b>fuel</b>, <b>CO₂ quota</b>, and the <b>game clock</b>. Pause with the ⏸ button when you need a breath.<br><br>The airport search box jumps the globe to any market — handy when you’re planning hubs and routes.`,
+    body: `Up top you’ll always see <b>cash</b>, <b>⭐ points</b>, <b>fuel</b>, <b>CO₂ quota</b>, and the <b>game clock</b>. Pause with the ⏸ button when you need a breath.<br><br>The airport search jumps the globe to any market. Pick one airport, then search a <b>destination</b> to research the route (demand, distance, rivals) — same as clicking two airports on the map.`,
   },
   {
     id: "globe",

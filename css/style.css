@@ -66,11 +66,43 @@ html, body {
 
 .tb-ap-search {
   position: relative;
-  flex: 0 1 240px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 1 280px;
   min-width: 140px;
-  max-width: 280px;
+  max-width: 340px;
 }
+.tb-ap-search.tb-ap-dest-mode { flex-basis: 320px; max-width: 380px; }
+.tb-ap-from {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  padding: 4px 6px 4px 8px;
+  border-radius: 999px;
+  background: rgba(251, 191, 36, 0.12);
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  color: var(--gold);
+  font: 600 11px "Segoe UI", system-ui, sans-serif;
+  white-space: nowrap;
+}
+.tb-ap-from[hidden] { display: none !important; }
+.tb-ap-from-lbl { color: var(--ink-3); font-weight: 500; font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; }
+.tb-ap-from-x {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--ink-3);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 2px;
+}
+.tb-ap-from-x:hover { color: var(--ink); }
 .tb-ap-search input {
+  flex: 1;
+  min-width: 0;
   width: 100%;
   box-sizing: border-box;
   background: var(--panel-2);
@@ -79,6 +111,9 @@ html, body {
   border-radius: 999px;
   padding: 6px 14px;
   font: 500 12.5px "Segoe UI", system-ui, sans-serif;
+}
+.tb-ap-search.tb-ap-dest-mode input {
+  border-color: rgba(251, 191, 36, 0.45);
 }
 .tb-ap-search input:focus {
   outline: none;
@@ -814,6 +849,19 @@ input[type="number"] { width: 82px; }
 #airport-card h3, #plane-card h3, #route-card h3 { font-size: 17px; margin-bottom: 2px; color: var(--gold); }
 #airport-card .close-x, #plane-card .close-x, #route-card .close-x { position: absolute; top: 6px; right: 8px; }
 #plane-card { width: 290px; max-height: calc(100vh - 90px); overflow-y: auto; }
+.fleet-plane-link {
+  appearance: none;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.fleet-plane-link:hover b,
+.fleet-plane-link:focus-visible b { color: var(--gold); text-decoration: underline; }
 #plane-card.has-pax { width: 310px; }
 #plane-card.has-route { width: 360px; }
 #plane-card-route:empty { display: none; }
