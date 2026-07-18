@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<base href="../">
+<title>Livery tint test</title>
+<style>
+  body { background: #cfe0ef; font-family: sans-serif; margin: 10px; }
+  .row { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+  .row b { width: 60px; }
+  canvas { width: 700px; height: auto; background: #fff; border: 1px solid #999; }
+</style>
+</head>
+<body>
+<div id="out"></div>
+<script>function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"/g,"&quot;");}</script>
+<script src="js/liveryart.js"></script>
+<script>
+const liv = location.search.includes("grid") ? {} : { body: "#f2d9d9", belly: "#2255cc", tail: "#dd2222", eng: "#22aa44" };
+let html = "";
+for (const key of Object.keys(LIVERY_TEMPLATES)) {
+  const payload = esc(JSON.stringify({ tpl: key, liv, cargo: false }));
+  const payloadC = esc(JSON.stringify({ tpl: key, liv, cargo: true }));
+  html += `<div class="row"><b>${key}</b><canvas class="lart-canvas" data-lart="${payload}"></canvas>
+           <canvas class="lart-canvas" data-lart="${payloadC}"></canvas></div>`;
+}
+document.getElementById("out").innerHTML = html;
+paintLiveryCanvases();
+if (location.search.includes("grid")) {
+  setTimeout(() => {
+    document.querySelectorAll("canvas.lart-canvas").forEach(cv => {
+      const ctx = cv.getContext("2d"), W = cv.width, H = cv.height;
+      ctx.font = "10px sans-serif";
+      for (let i = 1; i < 20; i++) {
+        const x = i * 0.05;
+        ctx.strokeStyle = i % 2 ? "rgba(255,0,255,.25)" : "rgba(255,0,255,.6)";
+        ctx.beginPath(); ctx.moveTo(x * W, 0); ctx.lineTo(x * W, H); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, x * H); ctx.lineTo(W, x * H); ctx.stroke();
+        if (i % 2 === 0) {
+          ctx.fillStyle = "#c0c";
+          ctx.fillText(x.toFixed(1), x * W + 2, 10);
+          ctx.fillText(x.toFixed(1), 2, x * H - 2);
+        }
+      }
+    });
+  }, 300);
+}
+</script>
+</body>
+</html>

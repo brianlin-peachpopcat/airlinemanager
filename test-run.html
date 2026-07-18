@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<!-- Temporary smoke-test page: seeds a demo game, no persistence. Safe to delete. -->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>SkyTycoon test</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header id="topbar">
+    <div class="brand">✈ SkyTycoon<span class="airline-name" id="tb-airline"></span></div>
+    <div class="tb-stats">
+      <div class="pill pill-cash"><span class="ico">💰</span><b id="tb-cash">$0</b></div>
+      <div class="pill pill-points"><span class="ico">⭐</span><b id="tb-points">0</b><span class="sub" id="tb-level">Startup</span></div>
+      <div class="pill"><span class="ico">⛽</span><b id="tb-fuel">0 t</b><span class="sub">fuel</span></div>
+      <div class="pill"><span class="ico">🌍</span><b id="tb-co2">0 t</b><span class="sub">CO₂</span></div>
+      <div class="pill pill-clock"><b id="tb-clock">Day 1 · 08:00</b></div>
+    </div>
+  </header>
+  <main>
+    <canvas id="globe"></canvas>
+    <nav id="sidebar">
+      <button data-panel="fleet" onclick="openPanel('fleet')"><span class="ico">🛫</span><span class="lbl">Fleet Management</span></button>
+      <button data-panel="buy" onclick="openPanel('buy')"><span class="ico">🛒</span><span class="lbl">Purchase Aircraft</span></button>
+      <button data-panel="maint" onclick="openPanel('maint')"><span class="ico">🔧</span><span class="lbl">Maintenance</span></button>
+      <button data-panel="fuel" onclick="openPanel('fuel')"><span class="ico">⛽</span><span class="lbl">Fuel &amp; CO₂</span></button>
+      <button data-panel="marketing" onclick="openPanel('marketing')"><span class="ico">📣</span><span class="lbl">Finance &amp; Marketing</span></button>
+      <button data-panel="events" onclick="openPanel('events')"><span class="ico">📰</span><span class="lbl">World Events</span></button>
+      <button data-panel="company" onclick="openPanel('company')"><span class="ico">🏢</span><span class="lbl">Company</span></button>
+    </nav>
+    <section id="panel" class="hidden">
+      <div id="panel-head"><h2 id="panel-title"></h2><button class="close-x" onclick="closePanel()">×</button></div>
+      <div id="panel-body"></div>
+    </section>
+    <div id="airport-card" class="hidden"></div>
+    <div id="plane-card" class="hidden"></div>
+    <div id="route-card" class="hidden"></div>
+    <div id="report-card" class="hidden"></div>
+    <div id="notifs"></div>
+    <button id="devbtn" title="Developer tools" onclick="toggleDev()">🛠</button>
+    <div id="devpanel" class="hidden"></div>
+  </main>
+  <div id="onboard" class="hidden"><div class="ob-box"><h1>x</h1>
+    <input id="ob-name" type="hidden"><select id="ob-hub" hidden></select></div></div>
+
+  <script src="js/data.js"></script>
+  <script src="js/planeart.js"></script>
+  <script src="js/liveryart.js"></script>
+  <script src="js/globe.js"></script>
+  <script src="js/game.js"></script>
+  <script src="js/ui.js"></script>
+  <script>
+    // no persistence in the smoke test
+    save = function () {};
+    const globe = new Globe(document.getElementById("globe"));
+    globe.onAirportClick = (ap) => uiAirportClick(ap);
+
+    newGame("Demo Airways", "JFK");
+    G.state.cash = 2e9;
+    earnPoints(500);
+    unlockCargo();
+    G.state.wideUnlocked = true;
+    G.state.autoDepart = true;
+    buyPlane("a320n"); buyPlane("b789"); buyPlane("atr72"); buyPlane("a388"); buyPlane("md11f"); buyPlane("a318");
+    for (let i = 0; i < 1150; i++) tick(true);   // let deliveries arrive
+    buyFuel(1400); buyCO2(4900);
+    const dests = { a320n: "LHR", b789: "NRT", atr72: "ORD", a388: "HKG", md11f: "FRA" };
+    for (const p of G.state.planes) {
+      if (p.typeId === "a318") assignRoute(p.id, "JFK", "NRT", ["ANC"]);   // stopover demo
+      else assignRoute(p.id, "JFK", dests[p.typeId] || "MIA");
+    }
+    G.state.charterUnlocked = true;
+    genCharterOffer(true); genCharterOffer(true);
+    for (let i = 0; i < 400; i++) tick(true);
+
+    renderTopbar();
+    UI.lastSeq = (G.state.logSeq || 0) - 2;   // let a couple of popups show
+    pumpNotifs();
+    const params = new URLSearchParams(location.search);
+    if (params.get("rot")) globe.rotLon = +params.get("rot") * Math.PI / 180;
+    if (params.get("tilt")) globe.tilt = +params.get("tilt") * Math.PI / 180;
+    const view = params.get("view");
+    if (view && view !== "globe") openPanel(view);
+    const apParam = params.get("airport");
+    if (apParam && airportByCode[apParam]) showAirportCard(airportByCode[apParam]);
+    const rParam = params.get("route");
+    if (rParam) { const [ra, rb] = rParam.split("-"); showRouteCard(ra, rb); }
+
+    function frame() { globe.render(globeState()); requestAnimationFrame(frame); }
+    requestAnimationFrame(frame);
+    setInterval(() => { tick(false); renderTopbar(); pumpNotifs(); refreshPanel(false); }, 500);
+  </script>
+</body>
+</html>

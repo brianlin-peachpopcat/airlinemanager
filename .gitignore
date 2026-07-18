@@ -1,0 +1,24 @@
+# Editor / agent
+.claude/
+.cursor/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Python tooling
+**/__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Livery build scratch / previews (not needed at runtime)
+tools/liv_preview/
+tools/**/*.pyc
+
+# Fetched stock photos unused by the game (runtime art lives in img/liveries/)
+img/*.jpg
+img/*-used.jpg
+
+# Local env / secrets (if any appear later)
+.env
+.env.*

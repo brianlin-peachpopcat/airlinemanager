@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#060d1a">
+  <title>SkyTycoon — Airline Manager</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✈️</text></svg>">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <header id="topbar">
+    <div class="brand">✈ SkyTycoon<span class="airline-name" id="tb-airline"></span></div>
+    <div class="tb-ap-search" id="tb-ap-search">
+      <input id="tb-ap-q" type="search" placeholder="Find airport…" autocomplete="off"
+        oninput="tbApSearch(this.value)" onfocus="tbApSearch(this.value)"
+        onkeydown="tbApKey(event)">
+      <div class="tb-ap-drop hidden" id="tb-ap-drop"></div>
+    </div>
+    <div class="tb-stats">
+      <div class="pill pill-cash"><span class="ico">💰</span><b id="tb-cash">$0</b></div>
+      <div class="pill pill-points"><span class="ico">⭐</span><b id="tb-points">0</b><span class="sub" id="tb-level">Startup</span></div>
+      <div class="pill pill-fuel"><span class="ico">⛽</span><b id="tb-fuel">0 t</b><span class="sub">fuel</span></div>
+      <div class="pill pill-co2"><span class="ico">🌍</span><b id="tb-co2">0 t</b><span class="sub">CO₂</span></div>
+      <div class="pill pill-clock"><b id="tb-clock">Day 1 · 08:00</b></div>
+      <button class="pill pill-pausebtn" id="tb-pause" onclick="uiTogglePause()" title="Pause / resume">⏸</button>
+    </div>
+  </header>
+
+  <main>
+    <canvas id="globe"></canvas>
+
+    <nav id="sidebar">
+      <button data-panel="fleet" onclick="openPanel('fleet')"><span class="ico">🛫</span><span class="lbl">Fleet Management</span></button>
+      <button data-panel="buy" onclick="openPanel('buy')"><span class="ico">🛒</span><span class="lbl">Purchase Aircraft</span></button>
+      <button data-panel="maint" onclick="openPanel('maint')"><span class="ico">🔧</span><span class="lbl">Maintenance</span></button>
+      <button data-panel="fuel" onclick="openPanel('fuel')"><span class="ico">⛽</span><span class="lbl">Fuel &amp; CO₂</span></button>
+      <button data-panel="marketing" onclick="openPanel('marketing')"><span class="ico">📣</span><span class="lbl">Finance &amp; Marketing</span></button>
+      <button data-panel="events" onclick="openPanel('events')"><span class="ico">📰</span><span class="lbl">World Events</span></button>
+      <button data-panel="company" onclick="openPanel('company')"><span class="ico">🏢</span><span class="lbl">Company</span></button>
+      <button data-panel="help" onclick="openPanel('help')"><span class="ico">❓</span><span class="lbl">Help</span></button>
+    </nav>
+
+    <section id="panel" class="hidden">
+      <div id="panel-head">
+        <h2 id="panel-title"></h2>
+        <button class="close-x" onclick="closePanel()">×</button>
+      </div>
+      <div id="panel-body"></div>
+    </section>
+
+    <div id="airport-card" class="hidden"></div>
+    <div id="plane-card" class="hidden"></div>
+    <div id="route-card" class="hidden"></div>
+    <div id="report-card" class="hidden"></div>
+    <div id="pax-view" class="hidden" aria-hidden="true"></div>
+    <div id="notifs"></div>
+
+    <button id="sndbtn" title="Toggle sound" onclick="toggleMute()">🔊</button>
+    <button id="devbtn" title="Developer tools" onclick="toggleDev()">🛠</button>
+    <div id="devpanel" class="hidden"></div>
+  </main>
+
+  <div id="onboard" class="hidden">
+    <div class="ob-box">
+      <h1>✈ SkyTycoon</h1>
+      <div class="tagline">Build an airline empire, one route at a time.</div>
+      <label for="ob-name">Airline name</label>
+      <input id="ob-name" type="text" maxlength="28" placeholder="New Horizon Air">
+      <label>Home hub airport</label>
+      <div id="ob-hub-box"></div>
+      <label for="ob-starter">Starter aircraft (free, delivered at your hub)</label>
+      <select id="ob-starter">
+        <option value="a320" selected>Aerobus A320-200 — 164 seats, 5,700 km</option>
+        <option value="b737">Boing 737-700 — 140 seats, 6,370 km</option>
+      </select>
+      <label>Difficulty</label>
+      <div id="ob-diff" class="ob-diff"></div>
+      <div id="ob-diff-note" class="ob-diff-note"></div>
+      <div id="ob-speed-wrap">
+        <label for="ob-speed">Game speed</label>
+        <select id="ob-speed">
+          <option value="real">Real time — flights take as long as real ones</option>
+          <option value="fast" selected>4× speed — a long-haul takes a couple of hours</option>
+          <option value="classic">Classic 120× — a day passes every 12 minutes</option>
+        </select>
+      </div>
+      <label>Globe map</label>
+      <div id="ob-map" class="ob-diff"></div>
+      <div id="ob-map-note" class="ob-diff-note"></div>
+      <button class="btn btn-gold" onclick="startGame()">Found airline — $100M starting capital</button>
+      <div class="ob-start-note">Drag the globe to explore · pinch or scroll to zoom · tap airports for route info</div>
+    </div>
+  </div>
+
+  <script src="js/data.js"></script>
+  <script src="js/planeart.js"></script>
+  <script src="js/liveryart.js"></script>
+  <script src="assets/globe/earth-data.js"></script>
+  <script src="js/globe.js"></script>
+  <script src="js/game.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
