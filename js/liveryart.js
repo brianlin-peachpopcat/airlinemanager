@@ -293,6 +293,15 @@ const LIVERY_TEMPLATES = {
     src: "img/liveries/an225.png",
     // factory-only — no paint regions needed
   },
+  conc: {
+    src: "img/liveries/conc.png",
+    srcGnd: "img/liveries/conc-gnd.png",
+    win: [0.22, 0.62, 0.70, 0.70],
+    winGnd: [0.22, 0.58, 0.70, 0.66],
+    belly: [[-0.02, 0.78], [0.82, 0.78], [0.82, 1.02], [-0.02, 1.02]],
+    eng: [[0.52, 0.70, 0.74, 0.98]],
+    tail: [[0.78, 0.52], [0.84, -0.02], [1.02, -0.02], [1.02, 0.50], [0.90, 0.52]],
+  },
 };
 
 // box [x0,y0,x1,y1] -> octagon polygon (corners cut 25% of the short side)
@@ -364,7 +373,9 @@ const LIVERY_TPL_MAP = {
   // classic quadjets
   dc8: "dc8",
   b707: "b707",
-  // no template (SVG fallback): conc, an124
+  // Concorde — cruise (gear up) + taxi (gear down, nose up)
+  conc: "conc",
+  // no template (SVG fallback): an124
 };
 
 // types whose paint can never be changed
