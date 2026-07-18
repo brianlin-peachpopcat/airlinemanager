@@ -467,12 +467,14 @@ function charterCard() {
     const vipBadge = o.vip || o.client
       ? ` <span class="boost-badge">repeat · ${esc(o.client || "VIP")}</span>`
       : "";
+    const brief = o.brief || "Charter party requests a one-off ferry";
     return `<div class="charter-offer">
       <div class="card-row">
         <b>${o.from} → ${o.to}</b>${vipBadge}
         <span class="muted mini">${esc(a.city)} → ${esc(b.city)} · ${fmtNum(d)} km</span>
         <span class="price">${fmtMoney(o.pay)}</span>
       </div>
+      <div class="card-row muted mini charter-brief">“${esc(brief)}”</div>
       <div class="card-row muted mini">Expires in ${fmtDur(Math.max(0, o.expires - s.gameMin))}</div>
       <div class="card-actions">
         ${eligible.length
@@ -2870,8 +2872,10 @@ function renderDevPanel() {
   const tod = s.gameMin % 1440;
   const hh = String(Math.floor(tod / 60)).padStart(2, "0");
   const mm = String(tod % 60).padStart(2, "0");
+  const chromeOff = !!UI.chromeHidden;
   $("#devpanel").innerHTML = `
     <div class="dev-title">🛠 Developer tools</div>
+    <button class="btn ${chromeOff ? "btn-gold" : ""}" onclick="devToggleChrome()">${chromeOff ? "Show UI chrome" : "Hide UI chrome"}</button>
     <button class="btn" onclick="devGive(100e6)">+ $100M</button>
     <button class="btn" onclick="devGive(1e9)">+ $1B</button>
     <button class="btn ${s.devInfinite ? "btn-gold" : ""}" onclick="devInfinite()">∞ money: ${s.devInfinite ? "ON" : "off"}</button>
@@ -2922,6 +2926,15 @@ function devSkipHours(h) {
   renderDevPanel();
   if (typeof renderPaxView === "function") renderPaxView(true);
   save();
+}
+
+function devToggleChrome() {
+  UI.chromeHidden = !UI.chromeHidden;
+  document.body.classList.toggle("ui-chrome-off", !!UI.chromeHidden);
+  renderDevPanel();
+  toast(UI.chromeHidden
+    ? "UI chrome hidden — use 🛠 to show it again."
+    : "UI chrome restored.");
 }
 
 function devGive(v) { G.state.cash += v; renderTopbar(); save(); }
@@ -3745,9 +3758,13 @@ function renderPlaneCard() {
   const assigned = p.route
     ? `<div class="ac-row">Route <b>${p.route.from} ⇄ ${p.route.to}</b>${(p.route.stops || []).length ? ` <span class="muted mini">via ${p.route.stops.join("·")}</span>` : ""}</div>`
     : `<div class="ac-row muted">No route assigned</div>`;
+  const charterNote = p.charter && p.charter.brief
+    ? `<div class="ac-row muted mini charter-brief">“${esc(p.charter.brief)}”</div>`
+    : "";
   body.innerHTML = `
     <h3>✈ ${p.id}</h3>
     <div class="muted">${t.maker} ${t.name} · ${label}</div>
+    ${charterNote}
     ${routeLine}
     ${assigned}
     ${flying ? `<div class="ac-row"><div class="bar"><div class="bar-fill bar-ok" style="width:${Math.round(prog * 100)}%"></div></div>
@@ -4120,8 +4137,22 @@ const HELP_FAQ = [
 
 function renderHelp() {
   const open = UI.helpQ || null;
-  const intro = `<div class="muted mini panel-note">Quick answers for common “wait, why…?” moments. Tap a question to expand it — more tips will land here over time.</div>`;
-  return intro + HELP_FAQ.map(item => {
+  const q = (UI.helpSearch || "").trim().toLowerCase();
+  const items = q
+    ? HELP_FAQ.filter(item => {
+      const hay = `${item.q} ${item.a.replace(/<[^>]+>/g, " ")}`.toLowerCase();
+      return hay.includes(q);
+    })
+    : HELP_FAQ;
+  const intro = `<div class="muted mini panel-note">Quick answers for common “wait, why…?” moments. Tap a question to expand it — more tips will land here over time.</div>
+    <div class="help-search">
+      <input type="search" placeholder="🔍 Search help…" value="${esc(UI.helpSearch || "")}"
+        oninput="uiHelpSearch(this.value)" autocomplete="off">
+    </div>`;
+  if (!items.length) {
+    return intro + `<div class="empty">No help topics match “${esc(UI.helpSearch)}”.</div>`;
+  }
+  return intro + items.map(item => {
     const isOpen = open === item.id;
     return `<div class="card help-card ${isOpen ? "open" : ""}">
       <button class="help-q" onclick="uiHelpToggle('${item.id}')">
@@ -4131,6 +4162,13 @@ function renderHelp() {
       ${isOpen ? `<div class="help-a">${item.a}</div>` : ""}
     </div>`;
   }).join("");
+}
+
+function uiHelpSearch(val) {
+  UI.helpSearch = val;
+  refreshPanel(true);
+  const inp = document.querySelector("#panel-body .help-search input");
+  if (inp) { inp.focus(); const n = inp.value.length; inp.setSelectionRange(n, n); }
 }
 
 function uiHelpToggle(id) {

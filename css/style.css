@@ -992,6 +992,25 @@ input[type="number"] { width: 82px; }
   transition: opacity 0.15s;
 }
 #devbtn:hover { opacity: 1; }
+
+/* Dev cinematic mode — hide chrome; 🛠 stays so you can toggle back */
+body.ui-chrome-off #topbar,
+body.ui-chrome-off #sidebar,
+body.ui-chrome-off #panel,
+body.ui-chrome-off #sndbtn,
+body.ui-chrome-off #airport-card,
+body.ui-chrome-off #plane-card,
+body.ui-chrome-off #route-card,
+body.ui-chrome-off #report-card,
+body.ui-chrome-off #notifs {
+  display: none !important;
+}
+body.ui-chrome-off #devbtn,
+body.ui-chrome-off #devpanel {
+  z-index: 80;
+  opacity: 1;
+}
+
 #devpanel {
   position: fixed;
   left: 10px;
@@ -1627,6 +1646,20 @@ input[type="number"] { width: 82px; }
 .hist-when { margin-left: auto; }
 
 /* help / FAQ accordion */
+.help-search { margin: 0 0 10px; }
+.help-search input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+}
+.help-search input:focus { outline: none; border-color: var(--accent); }
+.charter-brief { font-style: italic; color: var(--ink-2); }
 .help-card { padding: 0; overflow: hidden; }
 .help-q {
   display: flex;

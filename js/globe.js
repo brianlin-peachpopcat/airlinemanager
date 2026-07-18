@@ -695,7 +695,7 @@ class Globe {
       const drawOne = (x, y, id) => {
         ctx.save();
         ctx.translate(x, y);
-        ctx.scale(0.78, 0.78);
+        ctx.scale(1.25, 1.25);
         ctx.fillStyle = "rgba(235,242,250,0.92)";
         ctx.strokeStyle = "rgba(15,40,75,0.65)";
         ctx.lineWidth = 1;
@@ -711,8 +711,8 @@ class Globe {
       if (list.length) {
         const show = list.slice(0, 5);
         show.forEach((id, i) => {
-          const ox = (i - (show.length - 1) / 2) * 11;
-          const oy = 10 + (i % 2) * 2;
+          const ox = (i - (show.length - 1) / 2) * 16;
+          const oy = 12 + (i % 2) * 3;
           drawOne(s.x + ox, s.y + oy, id);
         });
         if (n > show.length) {
@@ -953,11 +953,12 @@ class Globe {
     ctx.save();
     ctx.translate(s1.x, s1.y);
     ctx.rotate(ang);
-    // small plane silhouette pointing +x
+    ctx.scale(1.55, 1.55);
+    // plane silhouette pointing +x
     ctx.fillStyle = "#ffffff";
     ctx.strokeStyle = "rgba(10,30,60,0.85)";
     ctx.lineWidth = 1;
-    ctx.shadowColor = "rgba(0,20,50,0.6)"; ctx.shadowBlur = 4;
+    ctx.shadowColor = "rgba(0,20,50,0.6)"; ctx.shadowBlur = 5;
     ctx.beginPath();
     ctx.moveTo(7, 0);      // nose
     ctx.lineTo(1.5, -1.4);

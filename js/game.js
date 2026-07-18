@@ -18,6 +18,116 @@ const CHARTER_VIP_NAMES = [
   "Northwind VIP", "Lumen Tours", "Atlas Charter", "Meridian Club",
   "Cobalt Parties", "Vesper Holdings", "Pinnacle Sports", "Cedar Media",
 ];
+
+// Flavor lines for charter offers — country tags pick regional copy when
+// either endpoint matches; otherwise (or sometimes on purpose) use generic.
+const CHARTER_BRIEF_GENERIC = [
+  "Business corporation requests a ferry to a meeting",
+  "Executive board needs a same-day shuttle",
+  "Private client booking a quiet hop between cities",
+  "Consulting team needs wheels-up for a pitch",
+  "Wedding party chartering a one-way transfer",
+  "Film crew relocating between shoots",
+  "Medical specialist needs a timed arrival",
+  "Investor roadshow — boardroom in the sky",
+];
+const CHARTER_BRIEF_BY_COUNTRY = {
+  Canada: [
+    "Hockey team requests a ferry to the tournament",
+    "Junior squad needs a road-trip hop for playoffs",
+    "Curling club booking travel to nationals",
+    "Mining execs need a northern site visit",
+  ],
+  USA: [
+    "NCAA team chartering to the championship",
+    "Silicon Valley founders need a coast-to-coast hop",
+    "Campaign staff booking a rally transfer",
+    "Pro sports franchise relocating for an away game",
+  ],
+  "United Kingdom": [
+    "Premier League side needs an away-day ferry",
+    "City bankers booking a discreet continental hop",
+    "Royal-adjacent event needs a timed arrival",
+  ],
+  UK: [
+    "Premier League side needs an away-day ferry",
+    "City bankers booking a discreet continental hop",
+  ],
+  Japan: [
+    "Keiretsu executives need a same-day shuttle",
+    "Baseball club chartering for interleague travel",
+    "Anime production team relocating for a premiere",
+  ],
+  Australia: [
+    "AFL club booking an interstate ferry",
+    "Mining board needs a fly-in to the outback site",
+    "Surf contest organizers relocating the crew",
+  ],
+  Brazil: [
+    "Football club needs a derby-day ferry",
+    "Carnival organizers booking VIP transfers",
+  ],
+  France: [
+    "Fashion house needs a runway-week shuttle",
+    "Wine estate hosting a buyer tasting hop",
+  ],
+  Germany: [
+    "Auto-group engineers need a factory tour hop",
+    "Bundesliga side booking an away transfer",
+  ],
+  Italy: [
+    "Serie A club needs an away-day ferry",
+    "Design house booking Milan Fashion Week hops",
+  ],
+  Spain: [
+    "La Liga side chartering for an away fixture",
+    "Film festival VIP shuttle between venues",
+  ],
+  China: [
+    "Tech conglomerate needs a same-day board hop",
+    "Factory audit team booking a coastal transfer",
+  ],
+  India: [
+    "Cricket franchise needs a match-day ferry",
+    "Bollywood production relocating the cast",
+  ],
+  "United Arab Emirates": [
+    "Sovereign fund principals need a discreet hop",
+    "Luxury retail launch — VIP guest ferry",
+  ],
+  UAE: [
+    "Sovereign fund principals need a discreet hop",
+    "Luxury retail launch — VIP guest ferry",
+  ],
+  Mexico: [
+    "Football club booking a league away day",
+    "Resort group ferrying executives for an opening",
+  ],
+  "South Korea": [
+    "K-pop tour needs a city-to-city hop",
+    "Chaebol board booking a same-day shuttle",
+  ],
+  "New Zealand": [
+    "Rugby squad needs a ferry to the fixture",
+    "Film unit relocating between locations",
+  ],
+  "South Africa": [
+    "Safari lodge guests need a timed charter hop",
+    "Rugby franchise booking an away transfer",
+  ],
+  Switzerland: [
+    "Private bank principals need a discreet hop",
+    "Ski resort hosting a VIP transfer",
+  ],
+  Norway: [
+    "Offshore energy team needs a North Sea hop",
+    "Winter sports squad booking tournament travel",
+  ],
+  Sweden: [
+    "Hockey league side needs a road-trip ferry",
+    "Design studio relocating for a product launch",
+  ],
+};
 const MAINT_DURATION_MIN = 90;
 const WEAR_PER_HOUR = 0.06;        // % airframe wear per flight hour (long-hauls approach the cap)
 const WEAR_PER_LANDING_MAX = 1;    // one landing never adds more than 1%
@@ -4722,6 +4832,28 @@ function charterBasePay(d, vip) {
   return Math.round(pay / 1000) * 1000;
 }
 
+function charterBrief(a, b, opts = {}) {
+  if (opts.client) {
+    const vipLines = [
+      `${opts.client} requests a private ferry`,
+      `${opts.client} needs their usual shuttle`,
+      `Repeat booking — ${opts.client} on the move again`,
+    ];
+    return vipLines[Math.floor(Math.random() * vipLines.length)];
+  }
+  const regional = [];
+  for (const c of [a && a.country, b && b.country]) {
+    if (!c) continue;
+    const pool = CHARTER_BRIEF_BY_COUNTRY[c];
+    if (pool) regional.push(...pool);
+  }
+  // Prefer local color when either end has it; still mix in plain business often.
+  const pool = regional.length && Math.random() < 0.72
+    ? regional
+    : CHARTER_BRIEF_GENERIC;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
 function rememberCharterClient(c) {
   const s = G.state;
   if (!Array.isArray(s.charterClients)) s.charterClients = [];
@@ -4785,15 +4917,16 @@ function genCharterOffer(silent) {
     if (s.charterOffers.some(o => o.from === a.code && o.to === b.code)) continue;
     const pay = charterBasePay(d, vip);
     const life = vip ? CHARTER_LIFE_MIN + 2 * 60 : CHARTER_LIFE_MIN;
+    const brief = charterBrief(a, b, { client });
     s.charterId = (s.charterId || 0) + 1;
     s.charterOffers.push({
       id: s.charterId, from: a.code, to: b.code, pay, expires: s.gameMin + life,
-      client: client || null, vip,
+      client: client || null, vip, brief,
     });
     if (!silent) {
       const who = client ? `${client} · ` : "";
       const tag = vip ? " (repeat client)" : "";
-      log(`📞 Charter request: ${who}${a.code} → ${b.code} (${Math.round(d)} km) pays ${fmtMoney(pay)}${tag} — accept it in Fleet Management.`, "good");
+      log(`📞 Charter request: ${who}${a.code} → ${b.code} — ${brief} (${Math.round(d)} km) pays ${fmtMoney(pay)}${tag} — accept it in Fleet Management.`, "good");
     }
     return;
   }
@@ -4846,6 +4979,7 @@ function acceptCharter(offerId, planeId) {
     ferryFrom: ferryD > 0 ? loc : null,
     client: o.client || null,
     vip: !!o.vip,
+    brief: o.brief || null,
     spec,
   };
   p.status = "fly";
