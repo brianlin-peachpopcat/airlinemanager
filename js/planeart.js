@@ -22,6 +22,7 @@ const ART_STYLE = {
   b748: "b747", b744: "b747", b74d: "b747", b74sp: "b747", a388: "a380",
   b738f: "narrow", b763f: "wide", md11f: "wide", a332f: "wide", b77f: "wide", b748f: "b747",
   a300: "wide", b707: "narrow", b731: "narrow", b741: "b747", conc: "narrow",
+  a3: "narrow",
   il96: "wide", il964: "wide",
 };
 
@@ -55,6 +56,7 @@ const ART_FLAGS = {
   il96: { engines: 4 },
   il964: { engines: 4, len: 1.05 },
   conc: { hh: 5.5, len: 1.18 },        // slim needle-nosed dart
+  a3: { len: 0.42, hh: 7.5 },          // Aerobus's shortest airliner (joke stub)
   ph300: { rear: true, len: 0.72 },
   citx: { rear: true, len: 0.78 },
   g650: { rear: true, len: 0.9 },

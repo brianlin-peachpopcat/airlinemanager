@@ -1577,7 +1577,11 @@ function usedListHTML() {
     if (!t) return "";
     const refurbCost = Math.max(0, usedRefurbTarget(t) - l.price);
     const classicBadge = t.usedOnly
-      ? ` <span class="boost-badge">${t.id === "conc" ? "🛦 Mach 2 legend" : "♻️ classic — used only"}</span>`
+      ? ` <span class="boost-badge">${
+          t.id === "conc" ? "🛦 Mach 2 legend"
+          : t.id === "a3" ? "😂 joke plane"
+          : "♻️ classic — used only"
+        }</span>`
       : "";
     const floodBadge = l.fromEvent != null ? ` <span class="boost-badge">fleet retirement</span>` : "";
     const cargoLock = t.tons && !s.cargoUnlocked;
@@ -2601,8 +2605,25 @@ function dismissFlightReport() {
 function paintFlightReport(r) {
   const el = $("#report-card");
   if (!el || !r) return;
-  const loadPct = Math.round(r.carried / Math.max(1, r.cap) * 100);
   el.classList.remove("hidden");
+  if (r.kind === "departAll") {
+    const bits = [];
+    if (r.pax) bits.push(`${fmtNum(r.pax)} pax${r.capPax ? ` / ${fmtNum(r.capPax)} seats` : ""}`);
+    if (r.cargoT) bits.push(`${fmtNum(r.cargoT)} t freight${r.capCargo ? ` / ${fmtNum(r.capCargo)} t` : ""}`);
+    el.innerHTML = `
+      <button class="close-x" onclick="dismissFlightReport()" title="Dismiss">×</button>
+      <h3>🛫 Departed ${r.n} aircraft</h3>
+      <div class="muted mini">${r.routes || r.n} route${(r.routes || r.n) === 1 ? "" : "s"} · wave dispatch</div>
+      <div class="rep-grid">
+        ${bits.length ? `<span>Aboard</span><b>${bits.join(" · ")}</b>` : ""}
+        <span>Ticket &amp; freight sales</span><b class="ok-text">${fmtMoney(r.revenue || 0)}</b>
+        <span>Fuel used</span><b>${(r.fuelT || 0).toFixed(1)} t</b>
+        <span>CO₂ emitted</span><b>${(r.co2T || 0).toFixed(1)} t</b>
+      </div>
+      <div class="ac-row muted mini">Meals, lounges, fees &amp; ops settle on each landing.</div>`;
+    return;
+  }
+  const loadPct = Math.round(r.carried / Math.max(1, r.cap) * 100);
   if (r.kind === "depart") {
     el.innerHTML = `
       <button class="close-x" onclick="dismissFlightReport()" title="Dismiss">×</button>
@@ -2668,11 +2689,17 @@ function uiDepartAll() {
       return;
     }
   }
-  const n = departAllReady();
-  if (n) {
+  const summary = departAllReady();
+  if (summary) {
     _sfxSkipClick = true;
     sfx("depart");   // one takeoff cue for the whole wave (per-plane calls are silent)
     refreshPanel(true);
+    // One fleet card instead of a queue of per-plane depart popups
+    if (G.state.lastReport && G.state.lastReport.kind === "departAll") {
+      UI._repSeq = G.state.lastReport.seq;
+      UI._repHoldUntil = performance.now() + 7000;
+      paintFlightReport(G.state.lastReport);
+    }
   } else toast("No aircraft waiting for dispatch.");
 }
 
@@ -3773,6 +3800,14 @@ function paxThoughtsHtml(p) {
         `Wow! This ${dish} is amazing!`,
         `Whoa — the ${dish} is incredible.`,
         `That ${dish} just made the flight.`,
+      ]);
+    } else if (p.typeId === "a3" && !pe.isKid && rnd() < 1 / 15) {
+      thoughtFn = () => pick([
+        "This is a strange plane.",
+        "This plane is quite stubby.",
+        "Is the rest of the fuselage still at the factory?",
+        "I feel like I'm sitting in a nose cone with wings.",
+        "Shortest jet I've ever boarded. Kind of love it.",
       ]);
     }
     return { ...pe, thought: thoughtFn() };

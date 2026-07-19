@@ -420,6 +420,62 @@ const EVENT_TPL = [
     name: "Ratings spike", desc: "Prime-time audiences are huge this week — TV spots work overtime." },
   { kind: "campaign", campId: "global", campCost: 0.75, days: [3, 5], cd: 120, rare: true,
     name: "Sponsorship fire sale", desc: "Venues are desperate for partners — global sponsorships go cheaper." },
+
+  // --- extra demand / disruption flavour ---
+  { kind: "pax",  airport: "leisure", mult: 1.55, days: [3, 5], cd: 18,
+    name: "Cruise-ship turnaround", desc: "Three mega-ships dock at {X} the same morning — every seat out of town is gold." },
+  { kind: "pax",  airport: "big", mult: 1.45, days: [2, 4], cd: 22,
+    name: "Marathon weekend", desc: "Elite runners and their fans pour into {X} for race day." },
+  { kind: "pax",  airport: "any", mult: 1.4, days: [2, 3], cd: 16,
+    name: "Film festival", desc: "Red carpets and press junkets — {X} is suddenly full of sunglasses and carry-ons." },
+  { kind: "pax",  airport: "big", mult: 1.35, days: [3, 5], cd: 28,
+    name: "University exam season ends", desc: "Students flee {X} the moment finals end — every red-eye is packed." },
+  { kind: "pax",  country: ["India", "Pakistan", "Bangladesh"], mult: 1.5, days: [5, 8], cd: 40,
+    name: "Wedding season rush", desc: "Multi-city wedding circuits fill every cabin through {X}." },
+  { kind: "pax",  country: ["USA", "Canada"], mult: 1.35, days: [3, 5], cd: 35,
+    name: "Thanksgiving travel crush", desc: "Everyone in {X} is going home — or claiming they are." },
+  { kind: "pax",  country: ["China"], mult: 1.55, days: [6, 10], cd: 55,
+    name: "Spring Festival travel", desc: "The world's largest human migration brushes {X} — book early or cry." },
+  { kind: "both", airport: "big", mult: 1.3, days: [2, 4], cd: 20,
+    name: "Diplomatic summit", desc: "Motorcades and press pools squeeze {X} — pax and secure freight both spike." },
+  { kind: "both", airport: "any", mult: 0.55, days: [1, 3], cd: 22,
+    name: "ATC system outage", desc: "Radar screens go dark at {X} — flights cancel and tempers rise." },
+  { kind: "both", airport: "any", mult: 0.5, days: [1, 2], cd: 18,
+    name: "Runway resurfacing", desc: "{X} closes a main runway for emergency repairs — slots vanish overnight." },
+  { kind: "pax",  airport: "any", mult: 0.55, days: [2, 4], cd: 25,
+    name: "Hotel workers strike", desc: "No rooms in {X} means no tourists — inbound bookings collapse." },
+  { kind: "pax",  country: "any", mult: 0.65, days: [3, 5], cd: 30,
+    name: "Travel advisory", desc: "Foreign offices urge caution for {X} — leisure traffic dries up." },
+  { kind: "cargo", country: ["Netherlands", "Kenya", "Colombia", "Ecuador"], mult: 1.55, days: [3, 6], cd: 28,
+    name: "Flower auction surge", desc: "Cut flowers from {X} must fly tonight or wilt — freighters rejoice." },
+  { kind: "cargo", country: ["Japan", "Germany", "South Korea"], mult: 1.45, days: [3, 5], cd: 32,
+    name: "Chip fab emergency", desc: "A fab in {X} needs spare parts yesterday — belly holds fill with silicon." },
+  { kind: "cargo", airport: "big", mult: 1.4, days: [2, 4], cd: 24,
+    name: "Live-animal charter wave", desc: "Zoo transfers and breeding loans keep {X} freighters busy." },
+  { kind: "cargo", global: true, mult: 1.3, days: [3, 5], cd: 40,
+    name: "Just-in-time panic", desc: "Factories worldwide discover empty shelves — air freight rates smile." },
+  { kind: "fuel", mult: 1.2, days: [2, 4], cd: 25,
+    name: "Pipeline maintenance", desc: "A key jet-fuel pipeline is offline — prices creep up everywhere." },
+  { kind: "fuel", mult: 0.82, days: [2, 4], cd: 25,
+    name: "Refinery restart", desc: "A major refinery comes back online — jet fuel eases a little." },
+  { kind: "co2",  mult: 1.2, days: [3, 5], cd: 28,
+    name: "ETS auction spike", desc: "Carbon permit auctions clear high — quota gets dearer." },
+  { kind: "co2",  mult: 0.85, days: [3, 5], cd: 28,
+    name: "Green corridor credits", desc: "New corridor credits hit the market — CO₂ permits soften." },
+  // rare & ridiculous (more)
+  { kind: "pax", airport: "any", mult: 1.5, days: [1, 2], cd: 100, rare: true,
+    name: "Influencer layover", desc: "A mega-influencer livestreams from {X} arrivals — fans book the next flight in." },
+  { kind: "both", airport: "any", mult: 0.4, days: [1, 1], cd: 110, rare: true,
+    name: "Escape-room on taxiway", desc: "A pop-up escape room blocked a taxiway at {X}. Nobody has the code." },
+  { kind: "pax", airport: "leisure", mult: 1.7, days: [1, 2], cd: 100, rare: true,
+    name: "Free ice-cream day", desc: "{X} tourism board is giving away ice cream at the terminal. Chaos. Delightful chaos." },
+  { kind: "both", airport: "any", mult: 0.55, days: [1, 1], cd: 95, rare: true,
+    name: "Drone wedding", desc: "Someone proposed with 200 drones over {X}. Tower is… negotiating." },
+  { kind: "pax", airport: "any", mult: 1.4, days: [1, 2], cd: 90, rare: true,
+    name: "Mascot convention", desc: "Hundreds of costumed mascots converge on {X}. The group photos are magnificent." },
+  { kind: "used", typeId: "a3", count: [2, 5], days: [3, 5], cd: 120, rare: true,
+    name: "A3 fleet clear-out",
+    desc: "A boutique carrier is dumping its Aerobus A3 stubs — short, stubby, and somehow still airborne." },
 ];
 
 function genWorldEvent(silent) {
@@ -2290,6 +2346,8 @@ function refreshUsedMarket(silent) {
     addUsedListing(t);
     if (t.id === "conc" && !silent)
       log(`📰 Rare find: a Concorde has appeared on the used market — Mach 2 for those who dare.`, "good");
+    if (t.id === "a3" && !silent)
+      log(`📰 Rare find: an Aerobus A3 is on the used ramp — stubby, thirsty, and oddly popular with novelty seekers.`, "good");
   }
   // noUsed: factory-fresh types (777X, A350F) never show up second-hand
   const paxPool = AIRCRAFT.filter(t => !t.usedOnly && !t.noUsed && !t.tons
@@ -4494,6 +4552,8 @@ function calcBoarding(p) {
     unitLabel = `${carried} pax` + (f || j ? ` (F${f}/J${j}/Y${y})` : "");
     revenue = (f * cabinFare("F", d) * fF + j * cabinFare("J", d) * fJ + y * cabinFare("Y", d) * fare) * revDiffMult();
     revenue += carried * amenIncomePerPax(p) * revDiffMult();
+    // A3 novelty surcharge — people pay silly money to ride the stub
+    if (t.id === "a3") revenue *= 4.8;
 
     // Costs scale with the airframe you brought and the cabin you fitted —
     // a First-heavy 777 pays more gate/galley than an all-Y regional, even empty.
@@ -5208,13 +5268,63 @@ function departPlane(id) {
   return true;
 }
 
+/** Dispatch every Ready aircraft. Returns a summary for one fleet card (or null). */
 function departAllReady() {
-  let n = 0;
-  for (const p of G.state.planes) {
-    if (p.status === "ready") { attemptDepart(p, true); n++; }
+  const s = G.state;
+  const beforeSeq = s.repSeq || 0;
+  const launched = [];
+  for (const p of s.planes) {
+    if (p.status !== "ready") continue;
+    attemptDepart(p, true);
+    if (p.status === "fly") launched.push(p.id);
   }
-  if (n) { log(`🛫 Dispatched ${n} waiting aircraft.`, "info"); save(); }
-  return n;
+  if (!launched.length) return null;
+
+  // Fold the per-plane depart reports into one fleet summary so the UI
+  // doesn't flash a card for every takeoff.
+  const q = (s.reportQ = s.reportQ || []);
+  const mine = [];
+  const keep = [];
+  const launchedSet = new Set(launched);
+  for (const r of q) {
+    if (r.kind === "depart" && r.seq > beforeSeq && launchedSet.has(r.plane)) mine.push(r);
+    else keep.push(r);
+  }
+  s.reportQ = keep;
+
+  let revenue = 0, pax = 0, cargoT = 0, fuelT = 0, co2T = 0, capPax = 0, capCargo = 0;
+  const routeKeys = new Set();
+  for (const r of mine) {
+    revenue += r.revenue || 0;
+    fuelT += r.fuelT || 0;
+    co2T += r.co2T || 0;
+    if (r.cargo) {
+      cargoT += r.carried || 0;
+      capCargo += r.cap || 0;
+    } else {
+      pax += r.carried || 0;
+      capPax += r.cap || 0;
+    }
+    if (r.from && r.to) routeKeys.add([r.from, r.to].sort().join("-"));
+  }
+  const summary = {
+    kind: "departAll",
+    n: launched.length,
+    routes: routeKeys.size,
+    revenue: Math.round(revenue),
+    pax: Math.round(pax),
+    cargoT: Math.round(cargoT * 10) / 10,
+    capPax: Math.round(capPax),
+    capCargo: Math.round(capCargo * 10) / 10,
+    fuelT: Math.round(fuelT * 10) / 10,
+    co2T: Math.round(co2T * 10) / 10,
+    planeIds: launched,
+    t: s.gameMin,
+  };
+  pushFlightReport(summary);
+  log(`🛫 Dispatched ${launched.length} waiting aircraft — tickets ${fmtMoney(summary.revenue)}.`, "money");
+  save();
+  return summary;
 }
 
 // Past 30 bays, single hangar spaces can be bought with training points

@@ -311,6 +311,15 @@ const LIVERY_TEMPLATES = {
     eng: [[0.52, 0.70, 0.74, 0.98]],
     tail: [[0.78, 0.52], [0.84, -0.02], [1.02, -0.02], [1.02, 0.50], [0.90, 0.52]],
   },
+  // Joke stub — gear-down showroom plate only (the "real" photo is separate).
+  a3: {
+    src: "img/liveries/a3.png",
+    srcGnd: "img/liveries/a3.png",
+    win: [0.18, 0.48, 0.42, 0.58],
+    belly: [[-0.02, 0.72], [0.55, 0.72], [0.55, 1.02], [-0.02, 1.02]],
+    eng: [[0.28, 0.62, 0.52, 0.92]],
+    tail: [[0.42, 0.55], [0.52, -0.02], [0.95, -0.02], [0.95, 0.55]],
+  },
 };
 
 // box [x0,y0,x1,y1] -> octagon polygon (corners cut 25% of the short side)
@@ -385,6 +394,8 @@ const LIVERY_TPL_MAP = {
   b707: "b707",
   // Concorde — cruise (gear up) + taxi (gear down, nose up)
   conc: "conc",
+  // Aerobus A3 — joke stub (showroom plate)
+  a3: "a3",
   // no template (SVG fallback): an124
 };
 

@@ -105,6 +105,9 @@ const AIRCRAFT = [
   // and costs a fortune to keep airworthy (mxMult multiplies check costs).
   // Intentionally outside the usual fuel/CO₂ profit bands — a vanity money pit.
   { id: "conc",   maker: "Aérospéciale/BAC", name: "Concorde",      cat: "Narrowbody", price: 145.0e6, seats: 100, range: 7220,  speed: 2158, burn: 16.9, co2Mult: 1.50, mxMult: 4, usedOnly: true, usedChance: 0.05 },
+  // Aerobus A3 — joke stub with novelty fares. Short, thirsty, oddly profitable
+  // on hop routes (~90 flights to earn the sticker back at typical loads).
+  { id: "a3",     maker: "Aerobus",       name: "A3",                cat: "Narrowbody", price: 4.2e6,   seats: 20,  range: 1350,  speed: 650, burn: 2.15, co2Mult: 1.22, mxMult: 1.4, usedOnly: true, usedChance: 0.12 },
 ];
 
 // code, city, country, lat, lon, size (1-10 demand weight)
