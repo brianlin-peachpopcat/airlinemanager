@@ -282,14 +282,21 @@ class Globe {
     if (!pix) return false;
 
     const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+    // Soft interaction only while actively moving — tiny residual momentum
+    // used to keep the soft path for too long after release.
     const busy = this.dragging
       || this._keyPanning
       || now < (this._zoomBusyUntil || 0)
-      || Math.abs(this._vLon || 0) > 0.0002
-      || Math.abs(this._vTilt || 0) > 0.0002;
-    // Idle uses full device pixels; interaction drops res so wheel/drag stay fluid.
-    const dpr = busy ? 1 : Math.min(2, this.dpr || 1);
-    const maxPix = busy ? 380000 : (this.zoom >= 3 ? 2800000 : 2200000);
+      || Math.abs(this._vLon || 0) > 0.0012
+      || Math.abs(this._vTilt || 0) > 0.0012;
+    // Idle = full device pixels. Drag/zoom stays close to screen res so the
+    // globe doesn't look mushy (old path was ~380k px → heavy blurry upscale).
+    const dpr = busy
+      ? Math.min(1.35, this.dpr || 1)
+      : Math.min(2, this.dpr || 1);
+    const maxPix = busy
+      ? (this.zoom >= 3 ? 1600000 : 1200000)
+      : (this.zoom >= 3 ? 2800000 : 2200000);
     let bw = Math.max(64, Math.ceil(this.w * dpr));
     let bh = Math.max(64, Math.ceil(this.h * dpr));
     const area = bw * bh;
@@ -363,8 +370,8 @@ class Globe {
     ctx.clip();
     // Avoid blurry upscale when the buffer already matches the screen closely.
     const scaleX = this.w / this._earthBuf.width;
-    ctx.imageSmoothingEnabled = scaleX > 1.15;
-    ctx.imageSmoothingQuality = busy ? "low" : "high";
+    ctx.imageSmoothingEnabled = scaleX > 1.08;
+    ctx.imageSmoothingQuality = "high";
     ctx.drawImage(this._earthBuf, 0, 0, this.w, this.h);
     const gloss = ctx.createRadialGradient(cx - R * 0.35, cy - R * 0.4, R * 0.05, cx, cy, R);
     gloss.addColorStop(0, "rgba(255,255,255,0.14)");

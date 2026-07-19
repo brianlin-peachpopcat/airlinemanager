@@ -420,13 +420,18 @@ function refreshPanel(force) {
   }
   // Marketing / company / help are mostly static; skip tick rebuilds.
   if (!force && (UI.panel === "marketing" || UI.panel === "company" || UI.panel === "help")) return;
-  // History log: refresh on ticks so new events appear, but not while typing a filter
+  // History log: only rebuild when a new entry lands (or the user filters).
+  // Rebuilding every tick wiped .log-feed scrollTop and felt "stuck at top".
   if (!force && UI.panel === "logs") {
     if (body.contains(document.activeElement) &&
         /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) return;
+    const seq = (G.state && G.state.logSeq) || 0;
+    if (UI._logSeqShown === seq) return;
   }
 
   const scroll = body.scrollTop;
+  const feedEl = body.querySelector(".log-feed");
+  const feedScroll = feedEl ? feedEl.scrollTop : 0;
   const renderers = {
     fleet: renderFleet, buy: renderBuy, maint: renderMaint, fuel: renderFuel,
     marketing: renderMarketing, events: renderEvents, logs: renderLogs,
@@ -434,6 +439,9 @@ function refreshPanel(force) {
   };
   body.innerHTML = renderers[UI.panel]();
   body.scrollTop = scroll;
+  const feed2 = body.querySelector(".log-feed");
+  if (feed2) feed2.scrollTop = feedScroll;
+  if (UI.panel === "logs") UI._logSeqShown = (G.state && G.state.logSeq) || 0;
   if (UI.panel === "buy") UI._buyOrderCount = (G.state.orders || []).length;
   if (UI.panel === "fuel") drawSparklines();
   if (UI.panel === "help") {
@@ -4686,14 +4694,20 @@ function renderLogs() {
 
 function uiLogFilter(k) {
   UI.logFilter = k;
+  UI._logSeqShown = null;   // force rebuild with new filter
   refreshPanel(true);
 }
 
 function uiLogSearch(v) {
   UI.logSearch = v;
+  const feedEl = document.querySelector("#panel-body .log-feed");
+  const feedScroll = feedEl ? feedEl.scrollTop : 0;
+  UI._logSeqShown = null;
   refreshPanel(true);
   const inp = document.querySelector("#panel-body input[type=search]");
   if (inp) { inp.focus(); const n = inp.value.length; inp.setSelectionRange(n, n); }
+  const feed2 = document.querySelector("#panel-body .log-feed");
+  if (feed2) feed2.scrollTop = feedScroll;
 }
 
 // ---------------- world events panel ----------------
@@ -5009,7 +5023,7 @@ function tutAccept() {
 
 function tutDecline() {
   tutExit(false);
-  openPanel("buy");
+  closePanel();
   toast("Tour skipped — Help is always in the sidebar if you need it.");
 }
 

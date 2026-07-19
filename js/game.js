@@ -135,20 +135,19 @@ const WEAR_MAX = 120;              // hard cap
 const WEAR_SAFETY = 110;           // auto-ground + regulator fine
 
 // Difficulty — chosen at founding and locked for the save.
-// Easy: cheaper planes & marketing, Eco Friendly campaign unlocked.
+// Easy: milder aircraft discounts & marketing, Eco Friendly campaign unlocked.
 // Normal: the baseline balance.
 // Realism: faster airframe wear, game speed locked to 4×.
-// Easy list-price multipliers by class — tuned assuming ~75% reputation
-// (≈75% load). At that fill, a typical route earns the Easy sticker back in
-// roughly: Light ~120 · Regional/Narrowbody 50–90 · Widebody 110–150 ·
-// Freighter ~80–160. (Games still start at 50 rep / ~50% fills.)
-// VIP jets stay near list (no Easy fire-sale) because charter pay is already rich.
+// Easy new-plane multipliers stay ABOVE the used-market band (~45–70% of
+// factory list). Older 0.26–0.54 values made brand-new jets cheaper than
+// second-hand (e.g. 757 ~$16M new vs ~$25M used).
+// VIP jets stay near list (charter pay is already rich).
 const EASY_CAT_PLANE = {
-  Light: 0.54,
-  Regional: 0.26,
-  Narrowbody: 0.38,
-  Widebody: 0.46,
-  Freighter: 0.50,
+  Light: 0.88,
+  Regional: 0.82,
+  Narrowbody: 0.84,
+  Widebody: 0.86,
+  Freighter: 0.85,
   Charter: 1.0,
 };
 
@@ -801,7 +800,12 @@ function engineOf(id) {
 }
 
 function planeListPrice(t, engineId) {
-  return Math.round(t.price * engineOf(engineId).costMult * planePriceMult(t));
+  let price = Math.round(t.price * engineOf(engineId).costMult * planePriceMult(t));
+  // Hard floor: factory-new must never undercut a mint used listing
+  // (usedPriceOf at 0h / 0% wear ≈ 70% of factory list).
+  const floor = usedPriceOf(t, 0, 0) + 1e5;
+  if (price < floor) price = floor;
+  return price;
 }
 
 // older engines emit more CO2 per kg of fuel burned
