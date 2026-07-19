@@ -87,6 +87,11 @@ window.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "hidden") {
     save();
     if (typeof flushCloudSave === "function") flushCloudSave();
+  } else if (G.state && typeof runOfflineCatchup === "function") {
+    // Tab was backgrounded/frozen — catch up without requiring a full reload
+    const msg = runOfflineCatchup();
+    if (msg) notify(msg, "good");
+    save();
   }
 });
 window.addEventListener("keydown", (e) => {

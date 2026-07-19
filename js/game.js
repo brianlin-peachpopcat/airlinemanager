@@ -3143,6 +3143,7 @@ function newGame(airlineName, hubCode, timeScale, starter, difficulty) {
     gameMin: 8 * 60,           // start Day 1, 08:00
     founded: Date.now(),
     lastSeen: Date.now(),
+    lastSimAt: Date.now(),      // wall clock of last simulated tick (not bumped by autosave)
     planes: [],
     nextPlaneNum: 1,
     campaigns: [],              // { id, until (gameMin) }
@@ -3457,6 +3458,8 @@ function migrateState() {
     if (!G.state.difficulty || !DIFFICULTY[G.state.difficulty]) G.state.difficulty = "normal";
     if (!G.state.demandPools) G.state.demandPools = {};
     if (!G.state.timeScale) G.state.timeScale = SPEEDS.classic;  // old saves keep the classic pace
+    // Wall-clock of last tick — must not piggyback on lastSeen (autosave refreshes that)
+    if (G.state.lastSimAt == null) G.state.lastSimAt = G.state.lastSeen || Date.now();
     // Realism always runs at 4× — re-assert in case an older save drifted
     if (G.state.difficulty === "realism") G.state.timeScale = SPEEDS.fast;
     if (G.state.wideUnlocked == null) {
@@ -3562,18 +3565,41 @@ function migrateState() {
     if (!Array.isArray(G.state.helpChat)) G.state.helpChat = [];
 }
 
-/** Run offline catch-up after a save is applied. */
+/**
+ * Run offline catch-up after a save is applied or the tab becomes visible again.
+ * Uses lastSimAt (last actual tick), not lastSeen — autosave used to refresh
+ * lastSeen while a background tab was frozen, so catch-up never fired.
+ * Returns the summary message, or null if nothing was simulated.
+ */
 function runOfflineCatchup() {
-  if (!G.state || G.state.paused) return;
-  const away = Math.floor((Date.now() - (G.state.lastSeen || Date.now())) / 1000
+  if (!G.state) return null;
+  if (G.state.paused) {
+    G.state.lastSimAt = Date.now();
+    return null;
+  }
+  const anchor = G.state.lastSimAt || G.state.lastSeen || Date.now();
+  const away = Math.floor((Date.now() - anchor) / 1000
     * (G.state.timeScale || SPEEDS.classic) / 60);
   const mins = Math.min(OFFLINE_CAP_MIN, Math.max(0, away));
-  if (mins > 5) {
-    const cashBefore = G.state.cash;
-    for (let i = 0; i < mins; i++) tick(true);
-    const earned = G.state.cash - cashBefore;
-    if (earned > 0) log(`While you were away: ${fmtMoney(earned)} earned over ${Math.round(mins / 60)}h of operations.`, "good");
+  if (mins <= 5) {
+    G.state.lastSimAt = Date.now();
+    return null;
   }
+  const cashBefore = G.state.cash;
+  for (let i = 0; i < mins; i++) tick(true);
+  G.state.lastSimAt = Date.now();
+  const earned = G.state.cash - cashBefore;
+  const hours = Math.max(1, Math.round(mins / 60));
+  let msg;
+  if (earned > 0) {
+    msg = `While you were away: ${fmtMoney(earned)} earned over ~${hours}h of operations.`;
+  } else if (earned < 0) {
+    msg = `While you were away: ~${hours}h of operations caught up (net ${fmtMoney(earned)}).`;
+  } else {
+    msg = `While you were away: ~${hours}h of operations caught up.`;
+  }
+  log(msg, earned >= 0 ? "good" : "info");
+  return msg;
 }
 
 /** Sync load from localStorage (fast path). */
@@ -3612,6 +3638,8 @@ async function loadAsync() {
 function togglePause() {
   const s = G.state;
   s.paused = !s.paused;
+  // Don't accrue offline time while paused
+  s.lastSimAt = Date.now();
   log(s.paused ? "⏸ Game paused." : "▶ Game resumed.", "info");
   save();
   return s.paused;
@@ -4186,6 +4214,7 @@ function tick(silent) {
   const s = G.state;
   if (!s) return;
   s.gameMin++;
+  s.lastSimAt = Date.now();
 
   // commodity price random walk w/ mean reversion, every 15 game min
   if (s.gameMin % 15 === 0) {
